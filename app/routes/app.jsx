@@ -106,7 +106,7 @@ export default function App() {
       <s-app-nav>
         <s-link href="/app">Pickup</s-link>
         <s-link href="/app/delivery">Delivery</s-link>
-        <s-link href="/app/schedules">Schedules</s-link>
+        <s-link href="/app/privacy">Privacy policy</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>
