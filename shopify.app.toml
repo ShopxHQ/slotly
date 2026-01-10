@@ -1,0 +1,29 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "e9cea7421c402ab30e1e3956b880a6cb"
+name = "Slotly"
+application_url = "https://example.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2026-01"
+
+  
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+[access_scopes]
+scopes = "write_orders,read_orders,write_draft_orders,read_products,write_products,read_themes,write_themes,write_script_tags,read_script_tags,read_metaobjects,write_metaobjects,write_shipping,write_discounts"
+
+
+[auth]
+redirect_urls = [ "https://example.com/api/auth" ]
