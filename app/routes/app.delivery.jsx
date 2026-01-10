@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -19,65 +19,50 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  console.log('=== DELIVERY ACTION HANDLER CALLED ===');
-  console.log('Method:', request.method);
-  
   if (request.method !== 'POST') {
     return { success: false, error: 'Method not allowed' };
   }
 
   try {
-    console.log('Step 1: Reading request body...');
     const clonedRequest = request.clone();
     let data;
     
     try {
       data = await clonedRequest.json();
     } catch (parseErr) {
-      console.error('Step 2: Failed to parse JSON:', parseErr.message);
       return { success: false, error: `JSON parse error: ${parseErr.message}` };
     }
     
-    console.log('Step 3: Parsed data keys:', Object.keys(data || {}));
     const config = data?.config;
     
     if (!config) {
-      console.error('Step 4: No config in request body');
       return { success: false, error: 'No config provided' };
     }
 
-    console.log('Step 5: Authenticating request...');
     const { admin } = await authenticate.admin(request);
-    console.log('Step 6: Authenticated successfully');
-
-    console.log('Step 7: Calling setDeliveryConfig...');
     const success = await setDeliveryConfig(admin.graphql, config);
-    console.log('Step 8: setDeliveryConfig returned:', success);
 
     if (success) {
-      console.log('SUCCESS: Delivery config saved to metafield');
-      return { success: true, error: null };
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { "Content-Type": "application/json" } }
+      );
     } else {
-      console.log('FAILED: setDeliveryConfig returned false');
-      return { success: false, error: 'Failed to save to metafield' };
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to save to metafield' }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
     }
   } catch (error) {
-    console.error('=== UNHANDLED ERROR ===');
-    console.error('Type:', error?.constructor?.name);
-    console.error('Message:', error?.message);
-    console.error('Stack:', error?.stack);
-    
-    return {
-      success: false,
-      error: error?.message || 'Unknown server error',
-    };
+    return new Response(
+      JSON.stringify({ success: false, error: error?.message || 'Unknown server error' }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 };
 
 function CalendarPreview({ availableDays, blockedDates }) {
   const [previewMonth, setPreviewMonth] = useState(new Date());
-  console.log('CalendarPreview received - availableDays:', availableDays);
-  console.log('CalendarPreview received - blockedDates:', blockedDates);
 
   const getDaysInMonth = (date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -111,11 +96,7 @@ function CalendarPreview({ availableDays, blockedDates }) {
 
   const isDateBlocked = (day) => {
     const dateString = `${year}-${String(previewMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const blocked = blockedDates && blockedDates.includes(dateString);
-    if (blockedDates && blockedDates.length > 0) {
-      console.log('Checking if', dateString, 'is in blockedDates:', blockedDates, 'Result:', blocked);
-    }
-    return blocked;
+    return blockedDates && blockedDates.includes(dateString);
   };
 
   const handlePrevMonth = () => {
@@ -261,7 +242,6 @@ function CalendarPreview({ availableDays, blockedDates }) {
 
 export default function Delivery() {
   const { initialConfig } = useLoaderData();
-  console.log('Delivery component - initialConfig:', initialConfig);
   
   const [earliestDays, setEarliestDays] = useState(initialConfig?.earliestDays || 1);
   const [furthestDays, setFurthestDays] = useState(initialConfig?.furthestDays || 90);
@@ -270,12 +250,18 @@ export default function Delivery() {
   const [expandedRuleId, setExpandedRuleId] = useState(null);
   const [saveStatus, setSaveStatus] = useState(null);
 
-  console.log('Delivery component - blockedDateRules:', blockedDateRules);
+  useEffect(() => {
+    setEarliestDays(initialConfig?.earliestDays || 1);
+    setFurthestDays(initialConfig?.furthestDays || 90);
+    setAvailableDays(initialConfig?.availableDays || []);
+    setBlockedDateRules(initialConfig?.blockedDateRules || []);
+    setExpandedRuleId(null);
+  }, [initialConfig]);
 
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   const handleSave = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     
     const config = {
       earliestDays: parseInt(earliestDays),
@@ -284,8 +270,6 @@ export default function Delivery() {
       blockedDateRules: Array.isArray(blockedDateRules) ? blockedDateRules.filter(r => r.id && (r.applyTo === 'all' || (r.applyTo === 'single' && r.singleDate) || (r.applyTo === 'range' && r.fromDate && r.toDate))) : [],
     };
 
-    console.log('handleSave: Saving config:', JSON.stringify(config, null, 2));
-
     try {
       const response = await fetch(window.location.pathname, {
         method: 'POST',
@@ -293,21 +277,16 @@ export default function Delivery() {
         body: JSON.stringify({ config }),
       });
 
-      console.log('handleSave: Response status:', response.status);
-      console.log('handleSave: Response headers:', Object.fromEntries(response.headers));
-
       let result;
       try {
         result = await response.json();
-        console.log('handleSave: Parsed result:', result);
       } catch (parseError) {
-        console.log('handleSave: Response not JSON, checking if OK:', response.ok);
         if (response.ok) {
           setSaveStatus({ type: 'success', message: 'Delivery configuration saved successfully!' });
           setTimeout(() => setSaveStatus(null), 3000);
           return;
         }
-        throw parseError;
+        result = { success: false, error: 'Invalid response format' };
       }
 
       if (result?.success) {
@@ -318,8 +297,7 @@ export default function Delivery() {
         setTimeout(() => setSaveStatus(null), 5000);
       }
     } catch (error) {
-      console.error('handleSave: Fetch error:', error);
-      setSaveStatus({ type: 'error', message: error.message || 'Network error' });
+      setSaveStatus({ type: 'error', message: error?.message || 'Network error' });
       setTimeout(() => setSaveStatus(null), 5000);
     }
   };
@@ -358,11 +336,7 @@ export default function Delivery() {
     const blockedSet = new Set();
     const today = new Date();
 
-    console.log('getBlockedDatesFromRules - Processing rules:', blockedDateRules);
-
     blockedDateRules.forEach(rule => {
-      console.log('Processing rule:', rule);
-      
       if (rule.applyTo === "range" && rule.fromDate && rule.toDate) {
         const [fromYear, fromMonth, fromDay] = rule.fromDate.split('-').map(Number);
         const [toYear, toMonth, toDay] = rule.toDate.split('-').map(Number);
@@ -371,19 +345,15 @@ export default function Delivery() {
         const to = new Date(toYear, toMonth - 1, toDay);
         const current = new Date(from);
 
-        console.log('Range blocking from', from, 'to', to);
-
         while (current <= to) {
           const dateStr = current.getFullYear() + '-' + 
                          String(current.getMonth() + 1).padStart(2, '0') + '-' + 
                          String(current.getDate()).padStart(2, '0');
           blockedSet.add(dateStr);
-          console.log('Blocked:', dateStr);
           current.setDate(current.getDate() + 1);
         }
       } else if (rule.applyTo === "single" && rule.singleDate) {
         blockedSet.add(rule.singleDate);
-        console.log('Single date blocked:', rule.singleDate);
       } else if (rule.applyTo === "all") {
         for (let i = 0; i < 365; i++) {
           const date = new Date(today);
@@ -396,7 +366,6 @@ export default function Delivery() {
       }
     });
 
-    console.log('Final blocked dates:', Array.from(blockedSet));
     return Array.from(blockedSet);
   };
 
