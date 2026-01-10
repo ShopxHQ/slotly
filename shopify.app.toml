@@ -1,8 +1,8 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "e9cea7421c402ab30e1e3956b880a6cb"
+client_id = "2c2828149edd2aa52678d883373118fb"
 name = "Slotly"
-application_url = "https://example.com"
+application_url = "https://slotly-1g8i.onrender.com"
 embedded = true
 
 [build]
@@ -26,4 +26,4 @@ scopes = "write_orders,read_orders,write_draft_orders,read_products,write_produc
 
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://slotly-1g8i.onrender.com" ]

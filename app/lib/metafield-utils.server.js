@@ -50,6 +50,14 @@ export const METAFIELD_DEFINITIONS = {
       type: 'json',
       ownerType: 'SHOP',
     },
+    {
+      namespace: 'delivery_config',
+      key: 'settings',
+      name: 'Delivery Configuration',
+      description: 'Delivery date and time configuration including available days and blocked dates',
+      type: 'json',
+      ownerType: 'SHOP',
+    },
   ],
 };
 

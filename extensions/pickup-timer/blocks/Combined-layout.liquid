@@ -1,0 +1,551 @@
+{% schema %}
+{
+  "name": "Combined Pickup",
+  "target": "body",
+  "settings": [
+    {
+      "type": "text",
+      "id": "delivery_title",
+      "label": "Delivery Date Label",
+      "default": "Select delivery date"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_time",
+      "label": "Show time picker",
+      "default": true
+    },
+    {
+      "type": "color",
+      "id": "shipping_color",
+      "label": "Shipping Background Color",
+      "default": "#8a9b5b"
+    },
+    {
+      "type": "color",
+      "id": "store_pickup_color",
+      "label": "Store Pickup Background Color",
+      "default": "#a8438c"
+    },
+    {
+      "type": "color",
+      "id": "active_border_color",
+      "label": "Active Border Color",
+      "default": "#000000"
+    }
+  ]
+}
+{% endschema %}
+
+<style>
+.combined-wrapper {
+  margin: 16px 0;
+  font-family: inherit;
+}
+
+/* PICKUP OPTIONS */
+.pickup-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pickup-option {
+  padding: 16px;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  color: #fff;
+  transition: all 0.25s ease;
+  border: 2px solid transparent;
+}
+
+.pickup-option.shipping {
+  background: var(--shipping-color);
+}
+
+.pickup-option.store-pickup {
+  background: var(--store-pickup-color);
+}
+
+.pickup-option.active {
+  border: 3px solid var(--active-border-color);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+.pickup-option-icon {
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+
+.pickup-option-label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* STORE INFO */
+.store-info {
+  display: none;
+  margin-bottom: 12px;
+}
+
+.store-info.active {
+  display: block;
+}
+
+.pickup-store-select {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+/* DELIVERY */
+.delivery-date-section {
+  margin-top: 12px;
+}
+
+.delivery-date-input-wrapper {
+  display: flex;
+  position: relative;
+}
+
+.delivery-date-input {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px 0 0 8px;
+  border: 1px solid #ccc;
+}
+
+.calendar-icon-btn {
+  width: 48px;
+  border-radius: 0 8px 8px 0;
+  border: 1px solid #ccc;
+  background: var(--store-pickup-color);
+  color: #fff;
+  cursor: pointer;
+}
+
+.delivery-time-input {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.delivery-calendar-popup {
+  position: absolute;
+  bottom: 110%;
+  left: 0;
+  width: 280px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  padding: 10px;
+  z-index: 999999;
+  display: none;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.calendar-header button {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.month-label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-weekday {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: #777;
+}
+
+.calendar-day {
+  text-align: center;
+  padding: 8px 0;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.calendar-day:hover {
+  background: #f2f2f2;
+}
+
+.calendar-day.disabled {
+  color: #bbb;
+  cursor: not-allowed;
+}
+
+.calendar-day.active {
+  background: #1a73e8;
+  color: #fff;
+}
+</style>
+
+<script>
+(function () {
+  let storeRules = [];
+  let deliveryConfig = {};
+
+  try {
+    const metafieldValue = {{ shop.metafields.store_config.store_rules.value | default: '[]' | json }};
+    if (typeof metafieldValue === 'string') {
+      storeRules = JSON.parse(metafieldValue);
+    } else if (Array.isArray(metafieldValue)) {
+      storeRules = metafieldValue;
+    }
+  } catch (e) {
+    console.error('[Combined Layout] Store metafield parse error:', e);
+    storeRules = [];
+  }
+
+  try {
+    const deliveryMeta = {{ shop.metafields.delivery_config.settings.value | json }};
+    console.log('[Combined Layout] Raw delivery metafield:', deliveryMeta);
+    deliveryConfig = deliveryMeta && typeof deliveryMeta === 'string' ? JSON.parse(deliveryMeta) : (deliveryMeta || {});
+    console.log('[Combined Layout] Parsed deliveryConfig:', deliveryConfig);
+  } catch (e) {
+    console.error('[Combined Layout] Delivery metafield parse error:', e);
+    deliveryConfig = {};
+  }
+
+  const DAY_MAP = {
+    Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3,
+    Thursday: 4, Friday: 5, Saturday: 6
+  };
+
+  function isDateBlocked(date) {
+    const dateStr = date.toISOString().split('T')[0];
+    const day = date.getDay();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const earliestDays = deliveryConfig.earliestDays ? parseInt(deliveryConfig.earliestDays) : 0;
+    const furthestDays = deliveryConfig.furthestDays ? parseInt(deliveryConfig.furthestDays) : null;
+
+    const earliestDate = new Date(today);
+    earliestDate.setDate(today.getDate() + earliestDays);
+
+    if (date < earliestDate) return true;
+
+    if (furthestDays !== null) {
+      const furthestDate = new Date(today);
+      furthestDate.setDate(today.getDate() + furthestDays);
+      if (date > furthestDate) return true;
+    }
+
+    if (Array.isArray(deliveryConfig.availableDays) && deliveryConfig.availableDays.length) {
+      const allowed = deliveryConfig.availableDays.map(d => DAY_MAP[d]);
+      if (!allowed.includes(day)) return true;
+    }
+
+    if (Array.isArray(deliveryConfig.blockedDateRules)) {
+      for (const rule of deliveryConfig.blockedDateRules) {
+        if (rule.applyTo === 'single' && rule.singleDate === dateStr) return true;
+        if (
+          rule.applyTo === 'range' &&
+          rule.fromDate &&
+          rule.toDate &&
+          dateStr >= rule.fromDate &&
+          dateStr <= rule.toDate
+        ) return true;
+      }
+    }
+
+    return false;
+  }
+
+  const CONFIG = {
+    shippingColor: '{{ settings.shipping_color }}',
+    storePickupColor: '{{ settings.store_pickup_color }}',
+    activeBorderColor: '{{ settings.active_border_color }}',
+    deliveryTitle: '{{ settings.delivery_title }}',
+    showTime: {{ settings.show_time | json }},
+    storeRules: storeRules,
+    deliveryConfig: deliveryConfig
+  };
+
+  function init() {
+    if (document.querySelector('.combined-wrapper')) return;
+
+    const checkoutBtn =
+      document.querySelector('form[action="/cart"] button[name="checkout"]') ||
+      document.querySelector('[name="checkout"]') ||
+      document.querySelector('.cart__checkout-button');
+
+    if (!checkoutBtn || !checkoutBtn.parentElement) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'combined-wrapper';
+
+    wrapper.style.setProperty('--shipping-color', CONFIG.shippingColor);
+    wrapper.style.setProperty('--store-pickup-color', CONFIG.storePickupColor);
+    wrapper.style.setProperty('--active-border-color', CONFIG.activeBorderColor);
+
+    const optionsHTML = Array.isArray(CONFIG.storeRules)
+      ? CONFIG.storeRules
+          .filter(store => store.active)
+          .map(store => {
+            const open = store.openTime || '—';
+            const close = store.closeTime || '—';
+            const tz = store.timezone || '—';
+
+            return `
+              <option value="${store.storeName}">
+                ${store.storeName} — ${open} to ${close} (${tz})
+              </option>
+            `;
+          })
+          .join('')
+      : '';
+
+    const timeInputHTML = CONFIG.showTime
+      ? '<input type="time" class="delivery-time-input">'
+      : '';
+
+    wrapper.innerHTML = `
+      <div class="pickup-options">
+        <div class="pickup-option shipping">
+          <div class="pickup-option-icon">🚚</div>
+          <div class="pickup-option-label">Shipping</div>
+        </div>
+        <div class="pickup-option store-pickup active">
+          <div class="pickup-option-icon">🏪</div>
+          <div class="pickup-option-label">Store Pickup</div>
+        </div>
+      </div>
+
+      <div class="store-info active">
+        <select class="pickup-store-select" required>
+          <option value="" disabled selected hidden>Select a store</option>
+          ${optionsHTML}
+        </select>
+      </div>
+
+      <div class="delivery-date-section">
+        <label style="font-weight:600;margin-bottom:6px;display:block;">
+          ${CONFIG.deliveryTitle}
+        </label>
+
+        <div class="delivery-date-input-wrapper" style="position: relative;">
+          <input class="delivery-date-input" readonly placeholder="Select delivery date">
+          <button type="button" class="calendar-icon-btn">📅</button>
+          <div class="delivery-calendar-popup"></div>
+        </div>
+
+        ${timeInputHTML}
+      </div>
+    `;
+
+    const shippingOption = wrapper.querySelector('.pickup-option.shipping');
+    const storeOption = wrapper.querySelector('.pickup-option.store-pickup');
+    const storeInfo = wrapper.querySelector('.store-info');
+    const storeSelect = wrapper.querySelector('.pickup-store-select');
+    const deliveryWrapper = wrapper.querySelector('.delivery-date-input-wrapper');
+    const timeInput = wrapper.querySelector('.delivery-time-input');
+    const dateInput = wrapper.querySelector('.delivery-date-input');
+    const calendarBtn = wrapper.querySelector('.calendar-icon-btn');
+    const calendarPopup = wrapper.querySelector('.delivery-calendar-popup');
+
+    let currentMonth = new Date();
+
+    deliveryWrapper.style.display = 'none';
+    if (timeInput) timeInput.style.display = 'none';
+
+    fetch('/cart.js')
+      .then(r => r.json())
+      .then(cart => {
+        if (cart.attributes && cart.attributes['Pickup Store']) {
+          storeSelect.value = cart.attributes['Pickup Store'];
+        }
+      });
+
+    shippingOption.addEventListener('click', () => {
+      shippingOption.classList.add('active');
+      storeOption.classList.remove('active');
+      storeInfo.classList.remove('active');
+
+      deliveryWrapper.style.display = 'flex';
+      if (timeInput) timeInput.style.display = 'block';
+    });
+
+    storeOption.addEventListener('click', () => {
+      storeOption.classList.add('active');
+      shippingOption.classList.remove('active');
+      storeInfo.classList.add('active');
+
+      deliveryWrapper.style.display = 'none';
+      if (timeInput) timeInput.style.display = 'none';
+    });
+
+    storeSelect.addEventListener('change', () => {
+      const selectedStore = storeSelect.value;
+      
+      const updateData = {
+        attributes: {
+          'Pickup Store': selectedStore
+        }
+      };
+
+      if (selectedStore) {
+        updateData.discount_code = 'FREEPICKUP';
+      }
+
+      fetch('/cart/update.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      }).catch(err => console.error('Cart update error:', err));
+    });
+
+    function renderCalendar() {
+      calendarPopup.innerHTML = '';
+
+      const header = document.createElement('div');
+      header.className = 'calendar-header';
+      header.innerHTML = `
+        <button class="prev">‹</button>
+        <span class="month-label">
+          ${currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+        </span>
+        <button class="next">›</button>
+      `;
+
+      const grid = document.createElement('div');
+      grid.className = 'calendar-grid';
+
+      ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d => {
+        const wd = document.createElement('div');
+        wd.className = 'calendar-weekday';
+        wd.textContent = d;
+        grid.appendChild(wd);
+      });
+
+      const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
+      const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
+
+      for (let i = 0; i < firstDay; i++) {
+        grid.appendChild(document.createElement('div'));
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d);
+        const cell = document.createElement('div');
+        cell.className = 'calendar-day';
+        cell.textContent = d;
+
+        const blocked = isDateBlocked(date);
+        console.log(`[Combined Layout] Date ${date.toISOString().split('T')[0]} blocked:`, blocked);
+
+        if (blocked) {
+          cell.classList.add('disabled');
+        } else {
+          cell.onclick = (e) => {
+            e.stopPropagation();
+            dateInput.value = date.toLocaleDateString('en-GB');
+            calendarPopup.style.display = 'none';
+            saveDate(date);
+          };
+        }
+
+        grid.appendChild(cell);
+      }
+
+      calendarPopup.appendChild(header);
+      calendarPopup.appendChild(grid);
+
+      header.querySelector('.prev').onclick = (e) => {
+        e.stopPropagation();
+        currentMonth.setMonth(currentMonth.getMonth() - 1);
+        renderCalendar();
+      };
+
+      header.querySelector('.next').onclick = (e) => {
+        e.stopPropagation();
+        currentMonth.setMonth(currentMonth.getMonth() + 1);
+        renderCalendar();
+      };
+    }
+
+    function saveDate(date) {
+      const dateStr = date.toISOString().split('T')[0];
+      fetch('/cart/update.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attributes: {
+            'Delivery Date': dateStr,
+            'Delivery Time': timeInput ? timeInput.value : ''
+          }
+        })
+      });
+    }
+
+    dateInput.addEventListener('click', (e) => {
+      e.stopPropagation();
+      calendarPopup.style.display = calendarPopup.style.display === 'block' ? 'none' : 'block';
+      renderCalendar();
+    });
+
+    calendarBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      calendarPopup.style.display = calendarPopup.style.display === 'block' ? 'none' : 'block';
+      renderCalendar();
+    });
+
+    calendarPopup.addEventListener('click', e => e.stopPropagation());
+
+    document.addEventListener('click', (e) => {
+      if (!wrapper.contains(e.target)) {
+        calendarPopup.style.display = 'none';
+      }
+    });
+
+    if (timeInput) {
+      timeInput.addEventListener('change', () => {
+        const selectedTime = timeInput.value;
+        
+        if (selectedTime) {
+          fetch('/cart/update.js', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              attributes: {
+                'Delivery Time': selectedTime
+              }
+            })
+          }).catch(err => console.error('Cart update error:', err));
+        }
+      });
+    }
+
+    checkoutBtn.parentElement.insertBefore(wrapper, checkoutBtn);
+  }
+
+  init();
+  document.addEventListener('shopify:section:load', init);
+  new MutationObserver(init).observe(document.body, { childList: true, subtree: true });
+})();
+</script>
