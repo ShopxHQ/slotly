@@ -105,21 +105,44 @@ export const action = async ({ request }) => {
       }
     `;
 
-    const result = await admin.graphql(mutation, {
-      variables: {
-        metafields: [
-          {
-            namespace: "pickup",
-            key: "store_rules",
-            type: "json",
-            value: JSON.stringify(rules),
-            ownerId: `gid://shopify/Shop/${session.shop}`,
-          },
-        ],
-      },
-    });
+    let result;
+    try {
+      result = await admin.graphql(mutation, {
+        variables: {
+          metafields: [
+            {
+              namespace: "pickup",
+              key: "store_rules",
+              type: "json",
+              value: JSON.stringify(rules),
+              ownerId: `gid://shopify/Shop/${session.shop}`,
+            },
+          ],
+        },
+      });
+    } catch (graphqlError) {
+      console.error("GraphQL request error:", graphqlError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Failed to communicate with Shopify" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
-    const data = await result.json();
+    let data;
+    try {
+      if (result instanceof Response) {
+        data = await result.json();
+      } else {
+        data = result;
+      }
+    } catch (parseError) {
+      console.error("Failed to parse GraphQL response:", parseError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid response from Shopify" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const errors = data?.data?.metafieldsSet?.userErrors || [];
 
     if (errors.length) {
@@ -420,110 +443,34 @@ export default function Index() {
 
   const saveRulesToMetafield = async (updatedRules) => {
     try {
-      console.log('=== FETCH: Sending rules to server ===');
-      console.log('Rules count:', updatedRules.length);
-      console.log('First rule:', updatedRules[0]);
-      
-      const bodyData = { rules: updatedRules };
-      console.log('Body to send:', JSON.stringify(bodyData).substring(0, 200) + '...');
-      
       const response = await fetch(window.location.pathname, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyData),
+        body: JSON.stringify({ rules: updatedRules }),
       });
-      
-      console.log('FETCH: Response received');
-      console.log('FETCH: Status:', response.status);
-      console.log('FETCH: OK:', response.ok);
-      console.log('FETCH: Status text:', response.statusText);
-      
+
       const contentType = response.headers.get('content-type');
-      console.log('FETCH: Content-Type:', contentType);
-      
-      let responseData = null;
-      let responseText = '';
-      
-      try {
-        responseText = await response.text();
-        console.log('FETCH: Response text length:', responseText.length);
-        console.log('FETCH: First 500 chars:', responseText.substring(0, 500));
-        
-        if (responseText && contentType && contentType.includes('application/json')) {
-          responseData = JSON.parse(responseText);
-          console.log('FETCH: Parsed JSON successfully');
-          console.log('FETCH: Response data:', responseData);
-        } else if (responseText) {
-          try {
-            responseData = JSON.parse(responseText);
-            console.log('FETCH: Parsed JSON despite content-type mismatch');
-          } catch (e) {
-            console.error('FETCH: Not valid JSON response');
-            console.error('FETCH: Content-Type was:', contentType);
-            const response = await fetch(window.location.pathname, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ rules: updatedRules }),
-});
+      let responseData;
 
-const data = await response.json();
-
-if (data.success) {
-  setTimeout(() => setSaveStatus(null), 3000);
-} else {
-  setSaveStatus({
-    type: 'error',
-    message: data.error || 'Failed to save store rules',
-  });
-  setTimeout(() => setSaveStatus(null), 5000);
-}
-
-            setSaveStatus({ type: 'error', message: `Server error: Invalid response format (${contentType || 'no content-type'})` });
-            setTimeout(() => setSaveStatus(null), 5000);
-            return;
-          }
-        }
-      } catch (parseError) {
-        console.error('FETCH: Failed to parse response:', parseError.message);
-        console.error('FETCH: Response text was:', responseText.substring(0, 500));
-        const response = await fetch(window.location.pathname, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ rules: updatedRules }),
-});
-
-const data = await response.json();
-
-if (data.success) {
-  setTimeout(() => setSaveStatus(null), 3000);
-} else {
-  setSaveStatus({
-    type: 'error',
-    message: data.error || 'Failed to save store rules',
-  });
-  setTimeout(() => setSaveStatus(null), 5000);
-}
-
-        setSaveStatus({ type: 'error', message: `Server error: ${parseError.message}` });
+      if (contentType && contentType.includes('application/json')) {
+        responseData = await response.json();
+      } else {
+        const text = await response.text();
+        console.error('Non-JSON response:', text.substring(0, 500));
+        setSaveStatus({ type: 'error', message: 'Server returned invalid response format' });
         setTimeout(() => setSaveStatus(null), 5000);
         return;
       }
-      
-      if (responseData && responseData.success) {
-        console.log('FETCH: SUCCESS');
+
+      if (responseData?.success) {
+        setSaveStatus({ type: 'success', message: 'Store rules saved successfully!' });
         setTimeout(() => setSaveStatus(null), 3000);
-      } else if (responseData && responseData.error) {
-        console.log('FETCH: FAILED - error:', responseData.error);
-        setSaveStatus({ type: 'error', message: responseData.error });
-        setTimeout(() => setSaveStatus(null), 5000);
       } else {
-        console.log('FETCH: No response data or unknown error');
-        setSaveStatus({ type: 'error', message: 'Failed to save store rules' });
+        setSaveStatus({ type: 'error', message: responseData?.error || 'Failed to save store rules' });
         setTimeout(() => setSaveStatus(null), 5000);
       }
     } catch (error) {
-      console.error('FETCH: Unexpected error:', error.message);
-      console.error('FETCH: Stack:', error.stack);
+      console.error('Save error:', error);
       setSaveStatus({ type: 'error', message: `Error: ${error.message}` });
       setTimeout(() => setSaveStatus(null), 5000);
     }
