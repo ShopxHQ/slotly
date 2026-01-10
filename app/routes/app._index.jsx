@@ -84,6 +84,65 @@ export const loader = async ({ request }) => {
   }
 };
 
+export const action = async ({ request }) => {
+  try {
+    const { admin, session } = await authenticate.admin(request);
+    const body = await request.json();
+    const { rules } = body;
+
+    if (!Array.isArray(rules)) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid rules payload" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const mutation = `#graphql
+      mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          userErrors { message }
+        }
+      }
+    `;
+
+    const result = await admin.graphql(mutation, {
+      variables: {
+        metafields: [
+          {
+            namespace: "pickup",
+            key: "store_rules",
+            type: "json",
+            value: JSON.stringify(rules),
+            ownerId: `gid://shopify/Shop/${session.shop}`,
+          },
+        ],
+      },
+    });
+
+    const data = await result.json();
+    const errors = data?.data?.metafieldsSet?.userErrors || [];
+
+    if (errors.length) {
+      return new Response(
+        JSON.stringify({ success: false, error: errors[0].message }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("ACTION ERROR:", error);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+};
+
+
 
 
 function ClosedDatesSection({ closedDates, onAddDate, onRemoveDate }) {
@@ -401,11 +460,24 @@ export default function Index() {
           } catch (e) {
             console.error('FETCH: Not valid JSON response');
             console.error('FETCH: Content-Type was:', contentType);
-            if (response.ok) {
-              setSaveStatus({ type: 'success', message: 'Store rules saved successfully!' });
-              setTimeout(() => setSaveStatus(null), 3000);
-              return;
-            }
+            const response = await fetch(window.location.pathname, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ rules: updatedRules }),
+});
+
+const data = await response.json();
+
+if (data.success) {
+  setTimeout(() => setSaveStatus(null), 3000);
+} else {
+  setSaveStatus({
+    type: 'error',
+    message: data.error || 'Failed to save store rules',
+  });
+  setTimeout(() => setSaveStatus(null), 5000);
+}
+
             setSaveStatus({ type: 'error', message: `Server error: Invalid response format (${contentType || 'no content-type'})` });
             setTimeout(() => setSaveStatus(null), 5000);
             return;
@@ -414,11 +486,24 @@ export default function Index() {
       } catch (parseError) {
         console.error('FETCH: Failed to parse response:', parseError.message);
         console.error('FETCH: Response text was:', responseText.substring(0, 500));
-        if (response.ok) {
-          setSaveStatus({ type: 'success', message: 'Store rules saved successfully!' });
-          setTimeout(() => setSaveStatus(null), 3000);
-          return;
-        }
+        const response = await fetch(window.location.pathname, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ rules: updatedRules }),
+});
+
+const data = await response.json();
+
+if (data.success) {
+  setTimeout(() => setSaveStatus(null), 3000);
+} else {
+  setSaveStatus({
+    type: 'error',
+    message: data.error || 'Failed to save store rules',
+  });
+  setTimeout(() => setSaveStatus(null), 5000);
+}
+
         setSaveStatus({ type: 'error', message: `Server error: ${parseError.message}` });
         setTimeout(() => setSaveStatus(null), 5000);
         return;
@@ -426,7 +511,6 @@ export default function Index() {
       
       if (responseData && responseData.success) {
         console.log('FETCH: SUCCESS');
-        setSaveStatus({ type: 'success', message: 'Store rules saved successfully!' });
         setTimeout(() => setSaveStatus(null), 3000);
       } else if (responseData && responseData.error) {
         console.log('FETCH: FAILED - error:', responseData.error);
@@ -470,7 +554,6 @@ export default function Index() {
     setRules(updatedRules);
     saveRulesToMetafield(updatedRules);
     setIsModalOpen(false);
-    setSaveStatus({ type: 'success', message: 'Store rules saved successfully!' });
     setTimeout(() => setSaveStatus(null), 3000);
   };
 
@@ -484,10 +567,6 @@ export default function Index() {
 
   return (
     <s-page heading="Pickup Configuration">
-      <s-button slot="primary-action" variant="primary">
-        Save Changes
-      </s-button>
-
       {saveStatus && (
         <div style={{
           padding: '12px 16px',

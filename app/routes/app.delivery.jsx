@@ -27,39 +27,32 @@ export const action = async ({ request }) => {
   }
 
   try {
-    console.log('Step 1: Authenticating original request...');
-    const { admin } = await authenticate.admin(request);
-    console.log('Step 2: Authenticated successfully');
-    
-    console.log('Step 3: Cloning request to read body...');
+    console.log('Step 1: Reading request body...');
     const clonedRequest = request.clone();
-    const bodyText = await clonedRequest.text();
-    console.log('Step 4: Body length:', bodyText.length);
-    
-    if (!bodyText) {
-      return { success: false, error: 'Empty request body' };
-    }
-    
-    console.log('Step 5: Body preview:', bodyText.substring(0, 200));
-    
     let data;
+    
     try {
-      data = JSON.parse(bodyText);
+      data = await clonedRequest.json();
     } catch (parseErr) {
-      console.error('Step 6: JSON parse failed:', parseErr.message);
+      console.error('Step 2: Failed to parse JSON:', parseErr.message);
       return { success: false, error: `JSON parse error: ${parseErr.message}` };
     }
     
-    console.log('Step 7: Parsed data keys:', Object.keys(data));
-    const config = data.config;
+    console.log('Step 3: Parsed data keys:', Object.keys(data || {}));
+    const config = data?.config;
     
     if (!config) {
+      console.error('Step 4: No config in request body');
       return { success: false, error: 'No config provided' };
     }
 
-    console.log('Step 8: Calling setDeliveryConfig...');
+    console.log('Step 5: Authenticating request...');
+    const { admin } = await authenticate.admin(request);
+    console.log('Step 6: Authenticated successfully');
+
+    console.log('Step 7: Calling setDeliveryConfig...');
     const success = await setDeliveryConfig(admin.graphql, config);
-    console.log('Step 9: setDeliveryConfig returned:', success);
+    console.log('Step 8: setDeliveryConfig returned:', success);
 
     if (success) {
       console.log('SUCCESS: Delivery config saved to metafield');
@@ -285,11 +278,13 @@ export default function Delivery() {
     e.preventDefault();
     
     const config = {
-      earliestDays,
-      furthestDays,
-      availableDays,
-      blockedDateRules,
+      earliestDays: parseInt(earliestDays),
+      furthestDays: furthestDays ? parseInt(furthestDays) : null,
+      availableDays: Array.isArray(availableDays) ? availableDays : [],
+      blockedDateRules: Array.isArray(blockedDateRules) ? blockedDateRules.filter(r => r.id && (r.applyTo === 'all' || (r.applyTo === 'single' && r.singleDate) || (r.applyTo === 'range' && r.fromDate && r.toDate))) : [],
     };
+
+    console.log('handleSave: Saving config:', JSON.stringify(config, null, 2));
 
     try {
       const response = await fetch(window.location.pathname, {
@@ -298,10 +293,15 @@ export default function Delivery() {
         body: JSON.stringify({ config }),
       });
 
+      console.log('handleSave: Response status:', response.status);
+      console.log('handleSave: Response headers:', Object.fromEntries(response.headers));
+
       let result;
       try {
         result = await response.json();
+        console.log('handleSave: Parsed result:', result);
       } catch (parseError) {
+        console.log('handleSave: Response not JSON, checking if OK:', response.ok);
         if (response.ok) {
           setSaveStatus({ type: 'success', message: 'Delivery configuration saved successfully!' });
           setTimeout(() => setSaveStatus(null), 3000);
@@ -310,15 +310,16 @@ export default function Delivery() {
         throw parseError;
       }
 
-      if (result.success) {
+      if (result?.success) {
         setSaveStatus({ type: 'success', message: 'Delivery configuration saved successfully!' });
         setTimeout(() => setSaveStatus(null), 3000);
       } else {
-        setSaveStatus({ type: 'error', message: result.error || 'Failed to save' });
+        setSaveStatus({ type: 'error', message: result?.error || 'Failed to save' });
         setTimeout(() => setSaveStatus(null), 5000);
       }
     } catch (error) {
-      setSaveStatus({ type: 'error', message: error.message });
+      console.error('handleSave: Fetch error:', error);
+      setSaveStatus({ type: 'error', message: error.message || 'Network error' });
       setTimeout(() => setSaveStatus(null), 5000);
     }
   };

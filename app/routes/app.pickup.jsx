@@ -18,10 +18,6 @@ export default function Pickup() {
 
   return (
     <s-page heading="Pickup Configuration">
-      <s-button slot="primary-action" variant="primary">
-        Save Changes
-      </s-button>
-
       <s-layout>
         <s-layout-section>
           <s-section heading="Pickup Settings">
