@@ -387,21 +387,11 @@ export default function Delivery() {
           {actionData.error}
         </div>
       )}
-      <Form method="POST" onSubmit={handleSubmit} slot="primary-action">
+      <Form method="POST" onSubmit={handleSubmit} style={{ display: 'contents' }}>
         <input type="hidden" name="config" />
-        <button type="submit" style={{
-          display: 'inline-block',
-          padding: '10px 20px',
-          backgroundColor: '#008000',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontSize: '14px',
-          fontWeight: '600',
-        }}>
+        <s-button slot="primary-action" variant="primary" type="submit">
           Save Changes
-        </button>
+        </s-button>
       </Form>
 
       <div style={{
