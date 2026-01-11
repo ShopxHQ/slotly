@@ -1,63 +1,76 @@
 import { useState, useEffect } from "react";
-import { useLoaderData } from "react-router";
+import { useLoaderData, Form, useActionData } from "react-router";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { setDeliveryConfig, getDeliveryConfig } from "../lib/metafield-utils.server";
 
 export const loader = async ({ request }) => {
+  console.log('=== DELIVERY LOADER CALLED ===');
   const { admin } = await authenticate.admin(request);
   const savedConfig = await getDeliveryConfig(admin.graphql);
   
+  console.log('Loader: savedConfig =', savedConfig);
+  
+  const config = savedConfig || {
+    earliestDays: 1,
+    furthestDays: 90,
+    availableDays: [],
+    blockedDateRules: [],
+  };
+  
+  console.log('Loader: returning config =', config);
+  
   return {
-    initialConfig: savedConfig || {
-      earliestDays: 1,
-      furthestDays: 90,
-      availableDays: [],
-      blockedDateRules: [],
-    }
+    initialConfig: config
   };
 };
 
 export const action = async ({ request }) => {
+  console.log('=== DELIVERY ACTION CALLED ===');
+  console.log('Method:', request.method);
+  
   if (request.method !== 'POST') {
+    console.log('Not a POST request');
     return { success: false, error: 'Method not allowed' };
   }
 
   try {
-    const clonedRequest = request.clone();
-    let data;
+    console.log('Parsing form data...');
+    const formData = await request.formData();
+    const configStr = formData.get('config');
+    console.log('Action: configStr =', configStr?.substring(0, 100));
     
-    try {
-      data = await clonedRequest.json();
-    } catch (parseErr) {
-      return { success: false, error: `JSON parse error: ${parseErr.message}` };
-    }
-    
-    const config = data?.config;
-    
-    if (!config) {
+    if (!configStr) {
+      console.error('Action: No config in form data');
       return { success: false, error: 'No config provided' };
     }
 
+    let config;
+    try {
+      config = JSON.parse(configStr);
+      console.log('Action: Parsed config:', JSON.stringify(config).substring(0, 200));
+    } catch (parseErr) {
+      console.error('Action: JSON parse error:', parseErr.message);
+      return { success: false, error: `Invalid config format: ${parseErr.message}` };
+    }
+
+    console.log('Authenticating...');
     const { admin } = await authenticate.admin(request);
+    console.log('Calling setDeliveryConfig...');
     const success = await setDeliveryConfig(admin.graphql, config);
+    console.log('setDeliveryConfig returned:', success);
 
     if (success) {
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { "Content-Type": "application/json" } }
-      );
+      console.log('Action: SUCCESS - Returning 200');
+      return { success: true };
     } else {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to save to metafield' }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+      console.log('Action: FAILED - setDeliveryConfig returned false');
+      return { success: false, error: 'Failed to save to metafield' };
     }
   } catch (error) {
-    return new Response(
-      JSON.stringify({ success: false, error: error?.message || 'Unknown server error' }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    console.error('Action: Caught error:', error?.message);
+    console.error('Stack:', error?.stack);
+    return { success: false, error: error?.message || 'Unknown server error' };
   }
 };
 
@@ -242,63 +255,42 @@ function CalendarPreview({ availableDays, blockedDates }) {
 
 export default function Delivery() {
   const { initialConfig } = useLoaderData();
+  const actionData = useActionData();
+  
+  console.log('=== DELIVERY COMPONENT RENDER ===');
+  console.log('Component received initialConfig:', initialConfig);
   
   const [earliestDays, setEarliestDays] = useState(initialConfig?.earliestDays || 1);
   const [furthestDays, setFurthestDays] = useState(initialConfig?.furthestDays || 90);
   const [availableDays, setAvailableDays] = useState(initialConfig?.availableDays || []);
   const [blockedDateRules, setBlockedDateRules] = useState(initialConfig?.blockedDateRules || []);
   const [expandedRuleId, setExpandedRuleId] = useState(null);
-  const [saveStatus, setSaveStatus] = useState(null);
+
+  console.log('Current state - earliestDays:', earliestDays, 'furthestDays:', furthestDays, 'availableDays:', availableDays);
 
   useEffect(() => {
+    console.log('=== USEEFFECT TRIGGERED ===');
+    console.log('useEffect: initialConfig changed:', initialConfig);
     setEarliestDays(initialConfig?.earliestDays || 1);
     setFurthestDays(initialConfig?.furthestDays || 90);
     setAvailableDays(initialConfig?.availableDays || []);
     setBlockedDateRules(initialConfig?.blockedDateRules || []);
     setExpandedRuleId(null);
+    console.log('useEffect: State reset complete');
   }, [initialConfig]);
 
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-  const handleSave = async (e) => {
-    e?.preventDefault?.();
-    
+  const handleSubmit = (e) => {
     const config = {
       earliestDays: parseInt(earliestDays),
       furthestDays: furthestDays ? parseInt(furthestDays) : null,
       availableDays: Array.isArray(availableDays) ? availableDays : [],
       blockedDateRules: Array.isArray(blockedDateRules) ? blockedDateRules.filter(r => r.id && (r.applyTo === 'all' || (r.applyTo === 'single' && r.singleDate) || (r.applyTo === 'range' && r.fromDate && r.toDate))) : [],
     };
-
-    try {
-      const response = await fetch(window.location.pathname, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ config }),
-      });
-
-      let result;
-      try {
-        result = await response.json();
-      } catch (parseError) {
-        if (response.ok) {
-          setSaveStatus({ type: 'success', message: 'Delivery configuration saved successfully!' });
-          setTimeout(() => setSaveStatus(null), 3000);
-          return;
-        }
-        result = { success: false, error: 'Invalid response format' };
-      }
-
-      if (result?.success) {
-        setSaveStatus({ type: 'success', message: 'Delivery configuration saved successfully!' });
-        setTimeout(() => setSaveStatus(null), 3000);
-      } else {
-        setSaveStatus({ type: 'error', message: result?.error || 'Failed to save' });
-        setTimeout(() => setSaveStatus(null), 5000);
-      }
-    } catch (error) {
-      setSaveStatus({ type: 'error', message: error?.message || 'Network error' });
-      setTimeout(() => setSaveStatus(null), 5000);
+    const input = e.currentTarget.querySelector('input[name="config"]');
+    if (input) {
+      input.value = JSON.stringify(config);
     }
   };
 
@@ -371,21 +363,46 @@ export default function Delivery() {
 
   return (
     <s-page heading="Delivery Configuration">
-      {saveStatus && (
+      {actionData?.success && (
         <div style={{
           padding: '12px 16px',
           borderRadius: '8px',
           marginBottom: '16px',
-          backgroundColor: saveStatus.type === 'success' ? '#d4edda' : '#f8d7da',
-          color: saveStatus.type === 'success' ? '#155724' : '#721c24',
-          border: `1px solid ${saveStatus.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`,
+          backgroundColor: '#d4edda',
+          color: '#155724',
+          border: '1px solid #c3e6cb',
         }}>
-          {saveStatus.message}
+          Delivery configuration saved successfully!
         </div>
       )}
-      <s-button slot="primary-action" variant="primary" onClick={handleSave}>
-        Save Changes
-      </s-button>
+      {actionData?.error && (
+        <div style={{
+          padding: '12px 16px',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          backgroundColor: '#f8d7da',
+          color: '#721c24',
+          border: '1px solid #f5c6cb',
+        }}>
+          {actionData.error}
+        </div>
+      )}
+      <Form method="POST" onSubmit={handleSubmit} slot="primary-action">
+        <input type="hidden" name="config" />
+        <button type="submit" style={{
+          display: 'inline-block',
+          padding: '10px 20px',
+          backgroundColor: '#008000',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '14px',
+          fontWeight: '600',
+        }}>
+          Save Changes
+        </button>
+      </Form>
 
       <div style={{
         display: "grid",
