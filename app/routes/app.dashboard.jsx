@@ -58,6 +58,7 @@ export default function Dashboard() {
           </s-text>
           <div style={{ marginTop: "auto", paddingTop: "8px" }}>
             <s-button variant="primary" onClick={() => navigate("/app/delivery")}>Configure Delivery</s-button>
+mary" url="/app/delivery">Configure Delivery</s-button>
           </div>
         </div>
       </div>
