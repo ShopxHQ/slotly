@@ -477,15 +477,57 @@
     deliveryConfig: deliveryConfig
   };
 
+  let initAttempts = 0;
+  const maxAttempts = 15;
+
+  function findCheckoutButton() {
+    const selectors = [
+      'form[action="/cart"] button[name="checkout"]',
+      'button[name="checkout"]',
+      '.cart__checkout-button',
+      '[data-test-id*="checkout"]',
+      'a[href="/checkout"]',
+      'a[href*="checkout"]',
+    ];
+
+    for (const selector of selectors) {
+      const btn = document.querySelector(selector);
+      if (btn && btn.offsetHeight > 0) {
+        console.log('[Combined Layout] Found checkout button with selector:', selector);
+        return btn;
+      }
+    }
+
+    const allButtons = Array.from(document.querySelectorAll('button, a'));
+    const checkoutBtn = allButtons.find(el => {
+      const text = el.textContent.toLowerCase().trim();
+      return (text.includes('checkout') || text.includes('check out')) && el.offsetHeight > 0;
+    });
+
+    if (checkoutBtn) {
+      console.log('[Combined Layout] Found checkout button by text content');
+    } else {
+      console.log('[Combined Layout] No checkout button found. Available buttons:', allButtons.slice(0, 5).map(b => b.textContent));
+    }
+
+    return checkoutBtn;
+  }
+
   function init() {
-    if (document.querySelector('.combined-wrapper')) return;
+    if (document.querySelector('[data-combined-wrapper-initialized]')) return;
 
-    const checkoutBtn =
-      document.querySelector('form[action="/cart"] button[name="checkout"]') ||
-      document.querySelector('[name="checkout"]') ||
-      document.querySelector('.cart__checkout-button');
+    const checkoutBtn = findCheckoutButton();
 
-    if (!checkoutBtn || !checkoutBtn.parentElement) return;
+    if (!checkoutBtn || !checkoutBtn.parentElement) {
+      if (initAttempts < maxAttempts) {
+        initAttempts++;
+        const delay = Math.min(500 * Math.pow(1.5, initAttempts / 3), 3000);
+        setTimeout(init, delay);
+      }
+      return;
+    }
+
+    initAttempts = 0;
 
     const parentContainer = checkoutBtn.parentElement;
     if (parentContainer) {
@@ -497,6 +539,7 @@
 
     const wrapper = document.createElement('div');
     wrapper.className = 'combined-wrapper';
+    wrapper.setAttribute('data-combined-wrapper-initialized', 'true');
 
     wrapper.style.setProperty('--shipping-color', CONFIG.shippingColor);
     wrapper.style.setProperty('--store-pickup-color', CONFIG.storePickupColor);
@@ -742,8 +785,31 @@
     checkoutBtn.parentElement.insertBefore(wrapper, checkoutBtn);
   }
 
-  init();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
   document.addEventListener('shopify:section:load', init);
-  new MutationObserver(init).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('turbo:load', init);
+  document.addEventListener('turbo:replace', init);
+
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.addedNodes.length) {
+        const hasCheckoutBtn = Array.from(mutation.addedNodes).some(node => {
+          return node.querySelector?.('button[name="checkout"]') || 
+                 node.matches?.('button[name="checkout"]');
+        });
+        if (hasCheckoutBtn) {
+          init();
+          break;
+        }
+      }
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
 })();
 </script>

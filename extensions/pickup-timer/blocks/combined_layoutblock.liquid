@@ -1,0 +1,715 @@
+{% schema %}
+{
+  "name": "Combined Pickup",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "delivery_title",
+      "label": "Delivery Date Label",
+      "default": "Select delivery date"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_time",
+      "label": "Show time picker",
+      "default": true
+    },
+    {
+      "type": "color",
+      "id": "shipping_color",
+      "label": "Shipping Background Color",
+      "default": "#8a9b5b"
+    },
+    {
+      "type": "color",
+      "id": "store_pickup_color",
+      "label": "Store Pickup Background Color",
+      "default": "#a8438c"
+    },
+    {
+      "type": "color",
+      "id": "active_border_color",
+      "label": "Active Border Color",
+      "default": "#000000"
+    }
+  ]
+}
+{% endschema %}
+
+<div
+  class="combined-wrapper"
+  style="
+    --shipping-color: {{ settings.shipping_color }};
+    --store-pickup-color: {{ settings.store_pickup_color }};
+    --active-border-color: {{ settings.active_border_color }};
+  "
+>
+  <div class="pickup-options">
+    <div class="pickup-option shipping">
+      <div class="pickup-option-icon">🚚</div>
+      <div class="pickup-option-label">Shipping</div>
+    </div>
+
+    <div class="pickup-option store-pickup active">
+      <div class="pickup-option-icon">🏪</div>
+      <div class="pickup-option-label">Store Pickup</div>
+    </div>
+  </div>
+
+  <div class="store-info active">
+    <select class="pickup-store-select">
+      <option value="" disabled selected hidden>Select a store</option>
+      {% for store in shop.metafields.store_config.store_rules.value %}
+        {% if store.active %}
+          <option value="{{ store.storeName }}">
+            {{ store.storeName }} — {{ store.openTime }} to {{ store.closeTime }}
+          </option>
+        {% endif %}
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="delivery-date-section">
+    <label>{{ settings.delivery_title }}</label>
+
+    <div class="delivery-date-input-wrapper">
+      <input
+        class="delivery-date-input"
+        readonly
+        placeholder="Select delivery date"
+      />
+      <button type="button" class="calendar-icon-btn">📅</button>
+      <div class="delivery-calendar-popup"></div>
+    </div>
+
+    {% if settings.show_time %}
+      <input type="time" class="delivery-time-input">
+    {% endif %}
+  </div>
+</div>
+
+
+<style>
+.combined-wrapper {
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  max-width: 100%;
+  width: 100%;
+  display: block;
+  background: transparent;
+}
+
+/* PICKUP OPTIONS */
+.pickup-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.pickup-option {
+  padding: 20px 16px;
+  border-radius: 10px;
+  text-align: center;
+  cursor: pointer;
+  color: #fff;
+  transition: all 0.3s ease;
+  border: 3px solid transparent;
+  font-size: 15px;
+  position: relative;
+  overflow: hidden;
+}
+
+.pickup-option::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.pickup-option:hover::before {
+  opacity: 1;
+}
+
+.pickup-option.shipping {
+  background: var(--shipping-color);
+}
+
+.pickup-option.store-pickup {
+  background: var(--store-pickup-color);
+}
+
+.pickup-option.active {
+  border-color: var(--active-border-color);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+.pickup-option-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.pickup-option-label {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.3px;
+}
+
+/* STORE INFO */
+.store-info {
+  display: none;
+  margin-bottom: 20px;
+  animation: slideDown 0.3s ease;
+}
+
+.store-info.active {
+  display: block;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pickup-store-select {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 2px solid #e0e0e0;
+  font-size: 14px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 20px;
+  padding-right: 40px;
+}
+
+.pickup-store-select:hover {
+  border-color: #999;
+  background-color: #fafafa;
+}
+
+.pickup-store-select:focus {
+  outline: none;
+  border-color: var(--store-pickup-color);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
+}
+
+/* DELIVERY */
+.delivery-date-section {
+  margin-top: 20px;
+  animation: slideDown 0.3s ease;
+}
+
+.delivery-date-section label {
+  font-weight: 700;
+  margin-bottom: 10px;
+  display: block;
+  color: #333;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+}
+
+.delivery-date-input-wrapper {
+  display: flex;
+  position: relative;
+  gap: 0;
+}
+
+.delivery-date-input {
+  flex: 1;
+  padding: 14px 16px;
+  border-radius: 10px 0 0 10px;
+  border: 2px solid #e0e0e0;
+  font-size: 14px;
+  background: #fff;
+  color: #333;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.delivery-date-input:hover {
+  border-color: #999;
+  background-color: #fafafa;
+}
+
+.delivery-date-input:focus {
+  outline: none;
+  border-color: var(--store-pickup-color);
+  box-shadow: inset 0 0 0 1px var(--store-pickup-color);
+}
+
+.calendar-icon-btn {
+  width: 50px;
+  border-radius: 0 10px 10px 0;
+  border: 2px solid #e0e0e0;
+  border-left: 2px solid #e0e0e0;
+  background: var(--store-pickup-color);
+  color: #fff;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-icon-btn:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: scale(1.02);
+}
+
+.calendar-icon-btn:active {
+  transform: scale(0.98);
+}
+
+.delivery-time-input {
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 2px solid #e0e0e0;
+  font-size: 14px;
+  background: #fff;
+  color: #333;
+  transition: all 0.3s ease;
+}
+
+.delivery-time-input:hover {
+  border-color: #999;
+  background-color: #fafafa;
+}
+
+.delivery-time-input:focus {
+  outline: none;
+  border-color: var(--store-pickup-color);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
+}
+
+.delivery-calendar-popup {
+  position: absolute;
+  bottom: 110%;
+  left: 0;
+  width: 310px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  padding: 16px;
+  z-index: 999999;
+  display: none;
+  margin-bottom: 8px;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.calendar-header button {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  color: #666;
+}
+
+.calendar-header button:hover {
+  background: #f5f5f5;
+  color: #000;
+}
+
+.month-label {
+  font-weight: 700;
+  font-size: 15px;
+  color: #333;
+  letter-spacing: 0.2px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.calendar-weekday {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #999;
+  padding: 8px 0;
+}
+
+.calendar-day {
+  text-align: center;
+  padding: 10px 0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #333;
+  position: relative;
+}
+
+.calendar-day:hover:not(.disabled) {
+  background: #f0f0f0;
+  transform: scale(1.05);
+}
+
+.calendar-day.disabled {
+  color: #ddd;
+  cursor: not-allowed;
+  font-weight: 400;
+}
+
+.calendar-day.active {
+  background: var(--store-pickup-color);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* FORCE FULL WIDTH LAYOUT */
+.combined-wrapper {
+  width: 100%;
+  flex-basis: 100%;
+  flex-shrink: 0;
+}
+
+/* MOBILE RESPONSIVENESS */
+@media (max-width: 480px) {
+  .pickup-options {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .pickup-option {
+    padding: 16px 12px;
+  }
+
+  .delivery-calendar-popup {
+    width: 100%;
+    max-width: 280px;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: auto;
+    top: 110%;
+    margin-bottom: 0;
+    margin-top: 8px;
+  }
+
+  .delivery-date-input-wrapper {
+    flex-direction: column;
+  }
+
+  .delivery-date-input {
+    border-radius: 10px;
+    margin-bottom: 8px;
+  }
+
+  .calendar-icon-btn {
+    border-radius: 10px;
+    width: 100%;
+  }
+}
+</style>
+
+<script>
+(function () {
+  if (document.querySelector('[data-combined-wrapper-initialized]')) return;
+
+  const wrapper = document.querySelector('.combined-wrapper');
+  if (!wrapper) return;
+
+  wrapper.setAttribute('data-combined-wrapper-initialized', 'true');
+
+  /* ===============================
+     METAFIELD (SAFE PARSE)
+  =============================== */
+  let deliveryConfig = {};
+
+  try {
+    const raw = {{ shop.metafields.delivery_config.settings.value | json }};
+    deliveryConfig =
+      raw && typeof raw === 'string'
+        ? JSON.parse(raw)
+        : (raw || {});
+  } catch (e) {
+    deliveryConfig = {};
+  }
+
+  const DAY_MAP = {
+    Sunday: 0,
+    Monday: 1,
+    Tuesday: 2,
+    Wednesday: 3,
+    Thursday: 4,
+    Friday: 5,
+    Saturday: 6
+  };
+
+  function isDateBlocked(date) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dateStr = date.toISOString().split('T')[0];
+
+    if (deliveryConfig.earliestDays) {
+      const min = new Date(today);
+      min.setDate(today.getDate() + Number(deliveryConfig.earliestDays));
+      if (date < min) return true;
+    }
+
+    if (deliveryConfig.furthestDays) {
+      const max = new Date(today);
+      max.setDate(today.getDate() + Number(deliveryConfig.furthestDays));
+      if (date > max) return true;
+    }
+
+    if (
+      Array.isArray(deliveryConfig.availableDays) &&
+      deliveryConfig.availableDays.length
+    ) {
+      const allowed = deliveryConfig.availableDays.map(d => DAY_MAP[d]);
+      if (!allowed.includes(date.getDay())) return true;
+    }
+
+    if (Array.isArray(deliveryConfig.blockedDateRules)) {
+      for (const rule of deliveryConfig.blockedDateRules) {
+        if (rule.applyTo === 'single' && rule.singleDate === dateStr) {
+          return true;
+        }
+
+        if (
+          rule.applyTo === 'range' &&
+          rule.fromDate &&
+          rule.toDate &&
+          dateStr >= rule.fromDate &&
+          dateStr <= rule.toDate
+        ) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /* ===============================
+     ELEMENTS
+  =============================== */
+  const shippingOption = wrapper.querySelector('.pickup-option.shipping');
+  const storeOption = wrapper.querySelector('.pickup-option.store-pickup');
+  const storeInfo = wrapper.querySelector('.store-info');
+  const storeSelect = wrapper.querySelector('.pickup-store-select');
+  const deliveryWrapper = wrapper.querySelector('.delivery-date-input-wrapper');
+  const timeInput = wrapper.querySelector('.delivery-time-input');
+  const dateInput = wrapper.querySelector('.delivery-date-input');
+  const calendarBtn = wrapper.querySelector('.calendar-icon-btn');
+  const calendarPopup = wrapper.querySelector('.delivery-calendar-popup');
+
+  let currentMonth = new Date();
+
+  /* ===============================
+     INITIAL STATE
+  =============================== */
+  deliveryWrapper.style.display = 'none';
+  if (timeInput) timeInput.style.display = 'none';
+
+  /* ===============================
+     PICKUP TOGGLE
+  =============================== */
+  shippingOption?.addEventListener('click', () => {
+    shippingOption.classList.add('active');
+    storeOption.classList.remove('active');
+    storeInfo.classList.remove('active');
+    deliveryWrapper.style.display = 'flex';
+    if (timeInput) timeInput.style.display = 'block';
+  });
+
+  storeOption?.addEventListener('click', () => {
+    storeOption.classList.add('active');
+    shippingOption.classList.remove('active');
+    storeInfo.classList.add('active');
+    deliveryWrapper.style.display = 'none';
+    if (timeInput) timeInput.style.display = 'none';
+  });
+
+  /* ===============================
+     STORE SAVE
+  =============================== */
+  storeSelect?.addEventListener('change', () => {
+    fetch('/cart/update.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        attributes: {
+          'Pickup Store': storeSelect.value
+        }
+      })
+    });
+  });
+
+  /* ===============================
+     CALENDAR RENDER
+  =============================== */
+  function renderCalendar() {
+    calendarPopup.innerHTML = '';
+
+    const header = document.createElement('div');
+    header.className = 'calendar-header';
+    header.innerHTML = `
+      <button class="prev">‹</button>
+      <span class="month-label">
+        ${currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+      </span>
+      <button class="next">›</button>
+    `;
+
+    const grid = document.createElement('div');
+    grid.className = 'calendar-grid';
+
+    ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'calendar-weekday';
+      el.textContent = d;
+      grid.appendChild(el);
+    });
+
+    const firstDay = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth(),
+      1
+    ).getDay();
+
+    const daysInMonth = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth() + 1,
+      0
+    ).getDate();
+
+    for (let i = 0; i < firstDay; i++) {
+      grid.appendChild(document.createElement('div'));
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(
+        currentMonth.getFullYear(),
+        currentMonth.getMonth(),
+        d
+      );
+
+      const cell = document.createElement('div');
+      cell.className = 'calendar-day';
+      cell.textContent = d;
+
+      if (isDateBlocked(date)) {
+        cell.classList.add('disabled');
+      } else {
+        cell.onclick = (e) => {
+          e.stopPropagation();
+          dateInput.value = date.toLocaleDateString('en-GB');
+          calendarPopup.style.display = 'none';
+
+          fetch('/cart/update.js', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              attributes: {
+                'Delivery Date': date.toISOString().split('T')[0]
+              }
+            })
+          });
+        };
+      }
+
+      grid.appendChild(cell);
+    }
+
+    calendarPopup.appendChild(header);
+    calendarPopup.appendChild(grid);
+
+    header.querySelector('.prev').onclick = (e) => {
+      e.stopPropagation();
+      currentMonth.setMonth(currentMonth.getMonth() - 1);
+      renderCalendar();
+    };
+
+    header.querySelector('.next').onclick = (e) => {
+      e.stopPropagation();
+      currentMonth.setMonth(currentMonth.getMonth() + 1);
+      renderCalendar();
+    };
+  }
+
+  /* ===============================
+     CALENDAR TOGGLE
+  =============================== */
+  function toggleCalendar(e) {
+    e.stopPropagation();
+    const open = calendarPopup.style.display === 'block';
+    calendarPopup.style.display = open ? 'none' : 'block';
+    if (!open) renderCalendar();
+  }
+
+  calendarBtn?.addEventListener('click', toggleCalendar);
+  dateInput?.addEventListener('click', toggleCalendar);
+
+  calendarPopup?.addEventListener('click', e => e.stopPropagation());
+
+  document.addEventListener('click', (e) => {
+    if (!wrapper.contains(e.target)) {
+      calendarPopup.style.display = 'none';
+    }
+  });
+
+  /* ===============================
+     TIME SAVE
+  =============================== */
+  timeInput?.addEventListener('change', () => {
+    fetch('/cart/update.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        attributes: {
+          'Delivery Time': timeInput.value
+        }
+      })
+    });
+  });
+
+})();
+</script>
