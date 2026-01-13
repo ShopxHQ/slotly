@@ -105,6 +105,7 @@ export default function App() {
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
         <s-link href="/app">Dashboard</s-link>
+        <s-link href="/app/pickup">Pickup</s-link>
         <s-link href="/app/delivery">Delivery</s-link>
         <s-link href="/app/privacy">Privacy policy</s-link>
       </s-app-nav>
