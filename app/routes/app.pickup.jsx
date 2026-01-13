@@ -387,7 +387,18 @@ function ClosedDatesSection({ closedDates, onAddDate, onRemoveDate }) {
 export default function Pickup() {
   const { storeRules: initialRules } = useLoaderData();
   
-  const defaultRules = [];
+  const defaultRules = [
+    {
+      id: 1,
+      storeName: "Main Store",
+      openTime: "09:00",
+      closeTime: "21:00",
+      closedDays: [0, 6],
+      closedDates: ["2025-01-01"],
+      timezone: "UTC",
+      active: true,
+    },
+  ];
 
   const [rules, setRules] = useState(initialRules && initialRules.length > 0 ? initialRules : defaultRules);
   const [saveStatus, setSaveStatus] = useState(null);
