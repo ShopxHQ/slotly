@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
@@ -6,6 +7,8 @@ export const loader = async ({ request }) => {
 };
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+
   return (
     <s-page heading="Dashboard">
       <div style={{
@@ -32,7 +35,7 @@ export default function Dashboard() {
             Manage your store locations, pickup hours, and special closures to provide a seamless pickup experience for your customers.
           </s-text>
           <div style={{ marginTop: "auto", paddingTop: "8px" }}>
-            <s-button variant="primary" url="/app">Manage Pickups</s-button>
+            <s-button variant="primary" onClick={() => navigate("/app/pickup")}>Manage Pickups</s-button>
           </div>
         </div>
 
@@ -54,7 +57,7 @@ export default function Dashboard() {
             Set up your delivery schedule, blocked dates, and lead times to ensure your delivery service meets your business needs.
           </s-text>
           <div style={{ marginTop: "auto", paddingTop: "8px" }}>
-            <s-button variant="primary" url="/app/delivery">Configure Delivery</s-button>
+            <s-button variant="primary" onClick={() => navigate("/app/delivery")}>Configure Delivery</s-button>
           </div>
         </div>
       </div>
