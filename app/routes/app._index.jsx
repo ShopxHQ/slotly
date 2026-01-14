@@ -61,59 +61,65 @@ export default function Index() {
             <s-button variant="primary" onClick={() => navigate("/app/delivery")}>Configure Delivery</s-button>
           </div>
         </div>
+      </div>
 
+      <div style={{ display: "flex", gap: "24px", marginBottom: "24px", flexWrap: "wrap" }}>
         {/* Card 3: App Embed */}
         <div style={{
+          flex: "1 1 400px",
           background: "#f0f4f9",
           border: "1px solid #d3e3fd",
           borderRadius: "10px",
-          padding: "24px",
+          padding: "16px 24px",
           display: "flex",
-          flexDirection: "column",
+          justifyContent: "space-between",
+          alignItems: "center",
           gap: "16px",
-          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
         }}>
-          <s-text variant="headingMd" style={{ fontWeight: "700", fontSize: "16px" }}>
-            App Activation
-          </s-text>
-          <s-text variant="bodyMd" tone="subdued">
-            Please activate it to turn on the functionality on your store front.
-          </s-text>
-          <div style={{ marginTop: "auto", paddingTop: "8px" }}>
-            <s-button 
-              variant="primary" 
-              onClick={() => window.open(`https://${shop}/admin/themes/current/editor?context=apps&activateAppId=2c2828149edd2aa52678d883373118fb/pickup-timer`, '_blank')}
-            >
-              Activate App Embed
-            </s-button>
+          <div style={{ flex: 1 }}>
+            <s-text variant="headingMd" style={{ fontWeight: "700", fontSize: "15px", display: "block" }}>
+              App Activation
+            </s-text>
+            <s-text variant="bodyMd" tone="subdued" style={{ fontSize: "13px" }}>
+              Please activate it to turn on the functionality on your store front.
+            </s-text>
           </div>
+          <s-button 
+            variant="primary" 
+            onClick={() => window.open(`https://${shop}/admin/themes/current/editor?context=apps&activateAppId=2c2828149edd2aa52678d883373118fb/Combined-layout`, '_blank')}
+          >
+            Activate
+          </s-button>
         </div>
 
         {/* Card 4: App Block */}
         <div style={{
+          flex: "1 1 400px",
           background: "#f0f4f9",
           border: "1px solid #d3e3fd",
           borderRadius: "10px",
-          padding: "24px",
+          padding: "16px 24px",
           display: "flex",
-          flexDirection: "column",
+          justifyContent: "space-between",
+          alignItems: "center",
           gap: "16px",
-          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
         }}>
-          <s-text variant="headingMd" style={{ fontWeight: "700", fontSize: "16px" }}>
-            Cart Page Integration
-          </s-text>
-          <s-text variant="bodyMd" tone="subdued">
-            If it is not showing on cart page then click on this button to add this.
-          </s-text>
-          <div style={{ marginTop: "auto", paddingTop: "8px" }}>
-            <s-button 
-              variant="primary" 
-              onClick={() => window.open(`https://${shop}/admin/themes/current/editor?template=cart&addAppBlockId=2c2828149edd2aa52678d883373118fb/combined_layoutblock&target=main`, '_blank')}
-            >
-              Add to Cart Page
-            </s-button>
+          <div style={{ flex: 1 }}>
+            <s-text variant="headingMd" style={{ fontWeight: "700", fontSize: "15px", display: "block" }}>
+              Cart Page Integration
+            </s-text>
+            <s-text variant="bodyMd" tone="subdued" style={{ fontSize: "13px" }}>
+              Add the widget to your cart page if it is not appearing automatically.
+            </s-text>
           </div>
+          <s-button 
+            variant="primary" 
+            onClick={() => window.open(`https://${shop}/admin/themes/current/editor?template=cart&addAppBlockId=2c2828149edd2aa52678d883373118fb/combined_layoutblock&target=main`, '_blank')}
+          >
+            Add to Cart
+          </s-button>
         </div>
       </div>
     </s-page>
