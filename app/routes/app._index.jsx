@@ -64,14 +64,14 @@ export default function Index() {
 
         {/* Card 3: App Embed */}
         <div style={{
-          background: "white",
-          border: "1px solid #e5e5e5",
+          background: "#f0f4f9",
+          border: "1px solid #d3e3fd",
           borderRadius: "10px",
           padding: "24px",
           display: "flex",
           flexDirection: "column",
           gap: "16px",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
         }}>
           <s-text variant="headingMd" style={{ fontWeight: "700", fontSize: "16px" }}>
             App Activation
@@ -82,7 +82,7 @@ export default function Index() {
           <div style={{ marginTop: "auto", paddingTop: "8px" }}>
             <s-button 
               variant="primary" 
-              onClick={() => window.open(`https://${shop}/admin/themes/current/editor?context=apps&activateAppId=30fc31b8-7bac-f063-5988-ecff3bc8117e2d879087/pickup-timer`, '_blank')}
+              onClick={() => window.open(`https://${shop}/admin/themes/current/editor?context=apps&activateAppId=2c2828149edd2aa52678d883373118fb/pickup-timer`, '_blank')}
             >
               Activate App Embed
             </s-button>
@@ -91,14 +91,14 @@ export default function Index() {
 
         {/* Card 4: App Block */}
         <div style={{
-          background: "white",
-          border: "1px solid #e5e5e5",
+          background: "#f0f4f9",
+          border: "1px solid #d3e3fd",
           borderRadius: "10px",
           padding: "24px",
           display: "flex",
           flexDirection: "column",
           gap: "16px",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
         }}>
           <s-text variant="headingMd" style={{ fontWeight: "700", fontSize: "16px" }}>
             Cart Page Integration
@@ -109,7 +109,7 @@ export default function Index() {
           <div style={{ marginTop: "auto", paddingTop: "8px" }}>
             <s-button 
               variant="primary" 
-              onClick={() => window.open(`https://${shop}/admin/themes/current/editor?template=cart&addAppBlockId=30fc31b8-7bac-f063-5988-ecff3bc8117e2d879087/combined_layoutblock`, '_blank')}
+              onClick={() => window.open(`https://${shop}/admin/themes/current/editor?template=cart&addAppBlockId=2c2828149edd2aa52678d883373118fb/combined_layoutblock&target=main`, '_blank')}
             >
               Add to Cart Page
             </s-button>
