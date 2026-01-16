@@ -1,13 +1,13 @@
 import { authenticate } from "../shopify.server";
 
-export const loader = async ({ request }) => {
+export const action = async ({ request }) => {
   if (request.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  try {
-    const { admin } = await authenticate.webhook(request);
+  const { admin } = await authenticate.webhook(request);
 
+  try {
     if (admin) {
       console.log("App installed, creating free shipping discount...");
       const mutation = `#graphql

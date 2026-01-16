@@ -468,11 +468,11 @@
   }
 
   const CONFIG = {
-    shippingColor: '{{ settings.shipping_color }}',
-    storePickupColor: '{{ settings.store_pickup_color }}',
-    activeBorderColor: '{{ settings.active_border_color }}',
-    deliveryTitle: '{{ settings.delivery_title }}',
-    showTime: {{ settings.show_time | json }},
+    shippingColor: '{{ block.settings.shipping_color }}',
+    storePickupColor: '{{ block.settings.store_pickup_color }}',
+    activeBorderColor: '{{ block.settings.active_border_color }}',
+    deliveryTitle: '{{ block.settings.delivery_title }}',
+    showTime: {{ block.settings.show_time | json }},
     storeRules: storeRules,
     deliveryConfig: deliveryConfig
   };
@@ -586,9 +586,7 @@
       </div>
 
       <div class="delivery-date-section">
-        <label>
-          ${CONFIG.deliveryTitle}
-        </label>
+       
 
         <div class="delivery-date-input-wrapper">
           <input class="delivery-date-input" readonly placeholder="Select delivery date">
@@ -630,6 +628,17 @@
 
       deliveryWrapper.style.display = 'flex';
       if (timeInput) timeInput.style.display = 'block';
+
+      fetch('/cart/update.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attributes: {
+            'Pickup Store': '',
+            'Delivery Type': 'Shipping'
+          }
+        })
+      });
     });
 
     storeOption.addEventListener('click', () => {
@@ -639,6 +648,18 @@
 
       deliveryWrapper.style.display = 'none';
       if (timeInput) timeInput.style.display = 'none';
+
+      fetch('/cart/update.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attributes: {
+            'Delivery Date': '',
+            'Delivery Time': '',
+            'Delivery Type': 'Store Pickup'
+          }
+        })
+      });
     });
 
     storeSelect.addEventListener('change', () => {
@@ -650,15 +671,49 @@
         }
       };
 
-      if (selectedStore) {
-        updateData.discount_code = 'FREEPICKUP';
-      }
-
       fetch('/cart/update.js', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
+      }).then(() => {
+        if (selectedStore) {
+          fetch('/discount/FREEPICKUP');
+        }
       }).catch(err => console.error('Cart update error:', err));
+    });
+
+    checkoutBtn.addEventListener('click', (e) => {
+      if (storeOption.classList.contains('active')) {
+        const selectedStore = storeSelect.value;
+        if (!selectedStore) {
+          alert('Please select a pickup store');
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+
+        if (checkoutBtn.tagName === 'A') {
+          e.preventDefault();
+          const url = new URL(checkoutBtn.href, window.location.origin);
+          url.searchParams.set('discount', 'FREEPICKUP');
+          window.location.href = url.toString();
+        } else {
+          const form = checkoutBtn.closest('form[action="/cart"]');
+          if (form) {
+            let discountInput = form.querySelector('input[name="discount"]');
+            if (!discountInput) {
+              discountInput = document.createElement('input');
+              discountInput.type = 'hidden';
+              discountInput.name = 'discount';
+              form.appendChild(discountInput);
+            }
+            discountInput.value = 'FREEPICKUP';
+          } else {
+            e.preventDefault();
+            window.location.href = `/checkout?discount=FREEPICKUP`;
+          }
+        }
+      }
     });
 
     function renderCalendar() {

@@ -59,7 +59,6 @@ export const action = async ({ request }) => {
       return json({ success: true, message: 'No schedule data found' });
     }
 
-    const client = await authenticate.webhook(request);
     const shop = order.shop?.url || 'unknown';
 
     const metafieldInput = {

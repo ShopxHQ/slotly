@@ -3,12 +3,7 @@
   "name": "Combined Pickup",
   "target": "section",
   "settings": [
-    {
-      "type": "text",
-      "id": "delivery_title",
-      "label": "Delivery Date Label",
-      "default": "Select delivery date"
-    },
+    
     {
       "type": "checkbox",
       "id": "show_time",
@@ -40,9 +35,9 @@
 <div
   class="combined-wrapper"
   style="
-    --shipping-color: {{ settings.shipping_color }};
-    --store-pickup-color: {{ settings.store_pickup_color }};
-    --active-border-color: {{ settings.active_border_color }};
+    --shipping-color: {{ block.settings.shipping_color }};
+    --store-pickup-color: {{ block.settings.store_pickup_color }};
+    --active-border-color: {{ block.settings.active_border_color }};
   "
 >
   <div class="pickup-options">
@@ -70,8 +65,7 @@
     </select>
   </div>
 
-  <div class="delivery-date-section">
-    <label>{{ settings.delivery_title }}</label>
+  
 
     <div class="delivery-date-input-wrapper">
       <input
@@ -83,7 +77,7 @@
       <div class="delivery-calendar-popup"></div>
     </div>
 
-    {% if settings.show_time %}
+    {% if block.settings.show_time %}
       <input type="time" class="delivery-time-input">
     {% endif %}
   </div>
@@ -91,6 +85,8 @@
 
 
 <style>
+
+  
 .combined-wrapper {
   margin: 0;
   padding: 0;
@@ -541,6 +537,29 @@
   const calendarBtn = wrapper.querySelector('.calendar-icon-btn');
   const calendarPopup = wrapper.querySelector('.delivery-calendar-popup');
 
+  function findCheckoutButton() {
+    const selectors = [
+      'form[action="/cart"] button[name="checkout"]',
+      'button[name="checkout"]',
+      '.cart__checkout-button',
+      '[data-test-id*="checkout"]',
+      'a[href="/checkout"]',
+      'a[href*="checkout"]',
+    ];
+
+    for (const selector of selectors) {
+      const btn = document.querySelector(selector);
+      if (btn && btn.offsetHeight > 0) return btn;
+    }
+
+    return Array.from(document.querySelectorAll('button, a')).find(el => {
+      const text = el.textContent.toLowerCase().trim();
+      return (text.includes('checkout') || text.includes('check out')) && el.offsetHeight > 0;
+    });
+  }
+
+  const checkoutBtn = findCheckoutButton();
+
   let currentMonth = new Date();
 
   /* ===============================
@@ -558,6 +577,17 @@
     storeInfo.classList.remove('active');
     deliveryWrapper.style.display = 'flex';
     if (timeInput) timeInput.style.display = 'block';
+
+    fetch('/cart/update.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        attributes: {
+          'Pickup Store': '',
+          'Delivery Type': 'Shipping'
+        }
+      })
+    });
   });
 
   storeOption?.addEventListener('click', () => {
@@ -566,22 +596,75 @@
     storeInfo.classList.add('active');
     deliveryWrapper.style.display = 'none';
     if (timeInput) timeInput.style.display = 'none';
+
+    fetch('/cart/update.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        attributes: {
+          'Delivery Date': '',
+          'Delivery Time': '',
+          'Delivery Type': 'Store Pickup'
+        }
+      })
+    });
   });
 
   /* ===============================
      STORE SAVE
   =============================== */
   storeSelect?.addEventListener('change', () => {
+    const selectedStore = storeSelect.value;
     fetch('/cart/update.js', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         attributes: {
-          'Pickup Store': storeSelect.value
+          'Pickup Store': selectedStore
         }
       })
+    }).then(() => {
+      if (selectedStore) {
+        fetch('/discount/FREEPICKUP');
+      }
     });
   });
+
+  if (checkoutBtn) {
+    checkoutBtn.addEventListener('click', (e) => {
+      if (storeOption?.classList.contains('active')) {
+        const selectedStore = storeSelect?.value;
+        if (!selectedStore) {
+          alert('Please select a pickup store');
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+
+        if (checkoutBtn.tagName === 'A') {
+          e.preventDefault();
+          const url = new URL(checkoutBtn.href, window.location.origin);
+          url.searchParams.set('discount', 'FREEPICKUP');
+          window.location.href = url.toString();
+        } else {
+          const form = checkoutBtn.closest('form[action="/cart"]');
+          if (form) {
+            let discountInput = form.querySelector('input[name="discount"]');
+            if (!discountInput) {
+              discountInput = document.createElement('input');
+              discountInput.type = 'hidden';
+              discountInput.name = 'discount';
+              form.appendChild(discountInput);
+            }
+            discountInput.value = 'FREEPICKUP';
+          } else {
+            e.preventDefault();
+            window.location.href = `/checkout?discount=FREEPICKUP`;
+          }
+        }
+      }
+    });
+  }
 
   /* ===============================
      CALENDAR RENDER
