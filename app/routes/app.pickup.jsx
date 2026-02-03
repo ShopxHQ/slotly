@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { useLoaderData, useNavigate } from "react-router";
+import { useState, useEffect } from "react";
+import { useLoaderData, useFetcher } from "react-router";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { TIMEZONES, getTimezoneLabel } from "../lib/timezones";
-import { getStoreRules } from "../lib/metafield-utils.server";
+import { TIMEZONES } from "../lib/timezones";
+import { getStoreRules, setStoreRules } from "../lib/metafield-utils.server";
 
 export const loader = async ({ request }) => {
   try {
@@ -86,7 +86,7 @@ export const loader = async ({ request }) => {
 
 export const action = async ({ request }) => {
   try {
-    const { admin, session } = await authenticate.admin(request);
+    const { admin } = await authenticate.admin(request);
     const body = await request.json();
     const { rules } = body;
 
@@ -97,58 +97,12 @@ export const action = async ({ request }) => {
       );
     }
 
-    const mutation = `#graphql
-      mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $metafields) {
-          userErrors { message }
-        }
-      }
-    `;
+    const success = await setStoreRules(admin.graphql, rules);
 
-    let result;
-    try {
-      result = await admin.graphql(mutation, {
-        variables: {
-          metafields: [
-            {
-              namespace: "pickup",
-              key: "store_rules",
-              type: "json",
-              value: JSON.stringify(rules),
-              ownerId: `gid://shopify/Shop/${session.shop}`,
-            },
-          ],
-        },
-      });
-    } catch (graphqlError) {
-      console.error("GraphQL request error:", graphqlError);
+    if (!success) {
       return new Response(
-        JSON.stringify({ success: false, error: "Failed to communicate with Shopify" }),
+        JSON.stringify({ success: false, error: "Failed to save store rules" }),
         { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    let data;
-    try {
-      if (result instanceof Response) {
-        data = await result.json();
-      } else {
-        data = result;
-      }
-    } catch (parseError) {
-      console.error("Failed to parse GraphQL response:", parseError);
-      return new Response(
-        JSON.stringify({ success: false, error: "Invalid response from Shopify" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    const errors = data?.data?.metafieldsSet?.userErrors || [];
-
-    if (errors.length) {
-      return new Response(
-        JSON.stringify({ success: false, error: errors[0].message }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -386,11 +340,24 @@ function ClosedDatesSection({ closedDates, onAddDate, onRemoveDate }) {
 
 export default function Pickup() {
   const { storeRules: initialRules } = useLoaderData();
+  const fetcher = useFetcher();
   
   const defaultRules = [];
 
   const [rules, setRules] = useState(initialRules && initialRules.length > 0 ? initialRules : defaultRules);
   const [saveStatus, setSaveStatus] = useState(null);
+
+  useEffect(() => {
+    if (fetcher.state === 'idle' && fetcher.data) {
+      if (fetcher.data.success) {
+        setSaveStatus({ type: 'success', message: 'Store rules saved successfully!' });
+        setTimeout(() => setSaveStatus(null), 3000);
+      } else if (fetcher.data.error) {
+        setSaveStatus({ type: 'error', message: fetcher.data.error || 'Failed to save store rules' });
+        setTimeout(() => setSaveStatus(null), 5000);
+      }
+    }
+  }, [fetcher.state, fetcher.data]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
@@ -431,35 +398,10 @@ export default function Pickup() {
   };
 
   const saveRulesToMetafield = async (updatedRules) => {
-    try {
-      const response = await fetch(window.location.pathname, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rules: updatedRules }),
-      });
-
-      let responseData;
-      try {
-        responseData = await response.json();
-      } catch (parseError) {
-        console.error('Failed to parse response:', parseError);
-        setSaveStatus({ type: 'success', message: 'Store rules saved successfully!' });
-        setTimeout(() => setSaveStatus(null), 3000);
-        return;
-      }
-
-      if (responseData?.success) {
-        setSaveStatus({ type: 'success', message: 'Store rules saved successfully!' });
-        setTimeout(() => setSaveStatus(null), 3000);
-      } else {
-        setSaveStatus({ type: 'error', message: responseData?.error || 'Failed to save store rules' });
-        setTimeout(() => setSaveStatus(null), 5000);
-      }
-    } catch (error) {
-      console.error('Save error:', error);
-      setSaveStatus({ type: 'success', message: 'Store rules saved successfully!' });
-      setTimeout(() => setSaveStatus(null), 3000);
-    }
+    fetcher.submit(
+      { rules: updatedRules },
+      { method: 'POST', encType: 'application/json' }
+    );
   };
 
   const handleSaveRule = () => {

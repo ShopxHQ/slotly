@@ -237,6 +237,7 @@ Shopify:
 - [Polaris Web Components](https://shopify.dev/docs/api/app-home/polaris-web-components).
 - [App extensions](https://shopify.dev/docs/apps/app-extensions/list)
 - [Shopify Functions](https://shopify.dev/docs/api/functions)
+- [Testing Guidelines](./TESTING.md)
 
 Internationalization:
 
