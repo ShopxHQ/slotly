@@ -1,12 +1,23 @@
-import { Outlet, useLoaderData, useRouteError, useLocation } from "react-router";
+import { useEffect } from "react";
+import { Outlet, useLoaderData, useRouteError, useLocation, redirect } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import { setStoreRules } from "../lib/metafield-utils.server";
+import { hasActiveSubscription } from "../lib/billing-utils.server";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  const { admin, session } = await authenticate.admin(request);
+  
+  const hasPlan = await hasActiveSubscription(admin.graphql);
+  const storeHandle = session.shop.replace(".myshopify.com", "");
+  const pricingUrl = `https://admin.shopify.com/store/${storeHandle}/charges/slotly-1/pricing_plans`;
+
+  return { 
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+    hasPlan,
+    pricingUrl
+  };
 };
 
 export const action = async ({ request }) => {
@@ -99,7 +110,49 @@ function response(data, status = 200) {
 }
 
 export default function App() {
-  const { apiKey } = useLoaderData();
+  const { apiKey, hasPlan, pricingUrl } = useLoaderData();
+
+  useEffect(() => {
+    if (!hasPlan && pricingUrl) {
+      window.open(pricingUrl, '_top');
+      return;
+    }
+
+    // Zoho SalesIQ
+    if (!document.getElementById('zsiqscript')) {
+      window.$zoho = window.$zoho || {};
+      window.$zoho.salesiq = window.$zoho.salesiq || { ready: function () { } };
+
+      const script = document.createElement('script');
+      script.id = 'zsiqscript';
+      script.src = 'https://salesiq.zohopublic.in/widget?wc=siqc080e1fb51ac24ddd01860bc66904e9d1ede4153fc6bc0d91f1bb42e182e90cc';
+      script.defer = true;
+      document.body.appendChild(script);
+    }
+
+    // Microsoft Clarity
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "ve31pv3xwf");
+  }, [hasPlan, pricingUrl]);
+
+  if (!hasPlan) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        flexDirection: 'column',
+        gap: '16px'
+      }}>
+        <s-text variant="headingLg">Redirecting to plans...</s-text>
+        <s-button onClick={() => window.open(pricingUrl, '_top')}>Click here if not redirected</s-button>
+      </div>
+    );
+  }
 
   return (
     <AppProvider embedded apiKey={apiKey}>

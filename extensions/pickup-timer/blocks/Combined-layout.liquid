@@ -11,6 +11,24 @@
     },
     {
       "type": "checkbox",
+      "id": "show_shipping",
+      "label": "Show Shipping Option",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_pickup",
+      "label": "Show Store Pickup Option",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_normal",
+      "label": "Show Normal Shipping Option",
+      "default": true
+    },
+    {
+      "type": "checkbox",
       "id": "show_time",
       "label": "Show time picker",
       "default": true
@@ -29,9 +47,31 @@
     },
     {
       "type": "color",
+      "id": "normal_color",
+      "label": "Normal Shipping Background Color",
+      "default": "#5b8a9b"
+    },
+    {
+      "type": "color",
       "id": "active_border_color",
       "label": "Active Border Color",
       "default": "#000000"
+    },
+    {
+      "type": "html",
+      "id": "custom_html",
+      "label": "Custom HTML",
+      "default": "<div></div>"
+    },
+    {
+      "type": "range",
+      "id": "card_border_radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "label": "Card Border Radius",
+      "default": 10
     }
   ]
 }
@@ -51,22 +91,38 @@
 /* PICKUP OPTIONS */
 .pickup-options {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 16px;
   margin-bottom: 20px;
 }
 
+.pickup-option.normal-shipping {
+  background: var(--normal-color);
+}
+
+.checkout-button-blurred {
+  filter: blur(2px) grayscale(0.5) !important;
+  pointer-events: none !important;
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
 .pickup-option {
-  padding: 20px 16px;
-  border-radius: 10px;
+  padding: 24px 12px;
+  border-radius: var(--card-radius, 10px);
   text-align: center;
   cursor: pointer;
   color: #fff;
   transition: all 0.3s ease;
   border: 3px solid transparent;
-  font-size: 15px;
+  font-size: 14px;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
 }
 
 .pickup-option::before {
@@ -137,7 +193,7 @@
 .pickup-store-select {
   width: 100%;
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: var(--card-radius, 10px);
   border: 2px solid #e0e0e0;
   font-size: 14px;
   background: #fff;
@@ -187,7 +243,7 @@
 .delivery-date-input {
   flex: 1;
   padding: 14px 16px;
-  border-radius: 10px 0 0 10px;
+  border-radius: var(--card-radius, 10px) 0 0 var(--card-radius, 10px);
   border: 2px solid #e0e0e0;
   font-size: 14px;
   background: #fff;
@@ -209,7 +265,7 @@
 
 .calendar-icon-btn {
   width: 50px;
-  border-radius: 0 10px 10px 0;
+  border-radius: 0 var(--card-radius, 10px) var(--card-radius, 10px) 0;
   border: 2px solid #e0e0e0;
   border-left: 2px solid #e0e0e0;
   background: var(--store-pickup-color);
@@ -235,7 +291,7 @@
   width: 100%;
   margin-top: 12px;
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: var(--card-radius, 10px);
   border: 2px solid #e0e0e0;
   font-size: 14px;
   background: #fff;
@@ -470,9 +526,15 @@
   const CONFIG = {
     shippingColor: '{{ block.settings.shipping_color }}',
     storePickupColor: '{{ block.settings.store_pickup_color }}',
+    normalColor: '{{ block.settings.normal_color }}',
     activeBorderColor: '{{ block.settings.active_border_color }}',
     deliveryTitle: '{{ block.settings.delivery_title }}',
+    showShipping: {{ block.settings.show_shipping | json }},
+    showPickup: {{ block.settings.show_pickup | json }},
+    showNormal: {{ block.settings.show_normal | json }},
     showTime: {{ block.settings.show_time | json }},
+    cardBorderRadius: {{ block.settings.card_border_radius | json }},
+    customHtml: {{ block.settings.custom_html | json }},
     storeRules: storeRules,
     deliveryConfig: deliveryConfig
   };
@@ -492,7 +554,7 @@
 
     for (const selector of selectors) {
       const btn = document.querySelector(selector);
-      if (btn && btn.offsetHeight > 0) {
+      if (btn) {
         console.log('[Combined Layout] Found checkout button with selector:', selector);
         return btn;
       }
@@ -501,7 +563,7 @@
     const allButtons = Array.from(document.querySelectorAll('button, a'));
     const checkoutBtn = allButtons.find(el => {
       const text = el.textContent.toLowerCase().trim();
-      return (text.includes('checkout') || text.includes('check out')) && el.offsetHeight > 0;
+      return (text.includes('checkout') || text.includes('check out'));
     });
 
     if (checkoutBtn) {
@@ -543,7 +605,19 @@
 
     wrapper.style.setProperty('--shipping-color', CONFIG.shippingColor);
     wrapper.style.setProperty('--store-pickup-color', CONFIG.storePickupColor);
+    wrapper.style.setProperty('--normal-color', CONFIG.normalColor);
     wrapper.style.setProperty('--active-border-color', CONFIG.activeBorderColor);
+    wrapper.style.setProperty('--card-radius', CONFIG.cardBorderRadius + 'px');
+
+    function updateCheckoutButtonState() {
+      if (!checkoutBtn) return;
+      const hasActive = wrapper.querySelector('.pickup-option.active');
+      if (hasActive) {
+        checkoutBtn.classList.remove('checkout-button-blurred');
+      } else {
+        checkoutBtn.classList.add('checkout-button-blurred');
+      }
+    }
 
     const optionsHTML = Array.isArray(CONFIG.storeRules)
       ? CONFIG.storeRules
@@ -566,28 +640,42 @@
       ? '<input type="time" class="delivery-time-input">'
       : '';
 
-    wrapper.innerHTML = `
-      <div class="pickup-options">
-        <div class="pickup-option shipping">
+    const normalShippingHTML = CONFIG.showNormal
+      ? `<div class="pickup-option normal-shipping">
+          <div class="pickup-option-icon">📦</div>
+          <div class="pickup-option-label">Normal Shipping</div>
+        </div>`
+      : '';
+
+    const shippingHTML = CONFIG.showShipping
+      ? `<div class="pickup-option shipping">
           <div class="pickup-option-icon">🚚</div>
           <div class="pickup-option-label">Shipping</div>
-        </div>
-        <div class="pickup-option store-pickup active">
+        </div>`
+      : '';
+
+    const pickupHTML = CONFIG.showPickup
+      ? `<div class="pickup-option store-pickup">
           <div class="pickup-option-icon">🏪</div>
           <div class="pickup-option-label">Store Pickup</div>
-        </div>
+        </div>`
+      : '';
+
+    wrapper.innerHTML = `
+      <div class="pickup-options">
+        ${normalShippingHTML}
+        ${shippingHTML}
+        ${pickupHTML}
       </div>
 
-      <div class="store-info active">
-        <select class="pickup-store-select" required>
+      <div class="store-info">
+        <select class="pickup-store-select">
           <option value="" disabled selected hidden>Select a store</option>
           ${optionsHTML}
         </select>
       </div>
 
-      <div class="delivery-date-section">
-       
-
+      <div class="delivery-date-section" style="display: none;">
         <div class="delivery-date-input-wrapper">
           <input class="delivery-date-input" readonly placeholder="Select delivery date">
           <button type="button" class="calendar-icon-btn">📅</button>
@@ -596,13 +684,16 @@
 
         ${timeInputHTML}
       </div>
+
+      ${CONFIG.customHtml ? `<div class="custom-html-wrapper">${CONFIG.customHtml}</div>` : ''}
     `;
 
+    const normalOption = wrapper.querySelector('.pickup-option.normal-shipping');
     const shippingOption = wrapper.querySelector('.pickup-option.shipping');
     const storeOption = wrapper.querySelector('.pickup-option.store-pickup');
     const storeInfo = wrapper.querySelector('.store-info');
     const storeSelect = wrapper.querySelector('.pickup-store-select');
-    const deliveryWrapper = wrapper.querySelector('.delivery-date-input-wrapper');
+    const deliverySection = wrapper.querySelector('.delivery-date-section');
     const timeInput = wrapper.querySelector('.delivery-time-input');
     const dateInput = wrapper.querySelector('.delivery-date-input');
     const calendarBtn = wrapper.querySelector('.calendar-icon-btn');
@@ -610,24 +701,44 @@
 
     let currentMonth = new Date();
 
-    deliveryWrapper.style.display = 'none';
-    if (timeInput) timeInput.style.display = 'none';
+    if (deliverySection) deliverySection.style.display = 'none';
+    updateCheckoutButtonState();
 
     fetch('/cart.js')
       .then(r => r.json())
       .then(cart => {
-        if (cart.attributes && cart.attributes['Pickup Store']) {
+        if (cart.attributes && cart.attributes['Pickup Store'] && storeSelect) {
           storeSelect.value = cart.attributes['Pickup Store'];
         }
       });
 
-    shippingOption.addEventListener('click', () => {
-      shippingOption.classList.add('active');
-      storeOption.classList.remove('active');
-      storeInfo.classList.remove('active');
+    normalOption?.addEventListener('click', () => {
+      wrapper.querySelectorAll('.pickup-option').forEach(opt => opt.classList.remove('active'));
+      normalOption.classList.add('active');
+      if (storeInfo) storeInfo.classList.remove('active');
+      if (deliverySection) deliverySection.style.display = 'none';
+      updateCheckoutButtonState();
 
-      deliveryWrapper.style.display = 'flex';
-      if (timeInput) timeInput.style.display = 'block';
+      fetch('/cart/update.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attributes: {
+            'Pickup Store': '',
+            'Delivery Date': '',
+            'Delivery Time': '',
+            'Delivery Type': 'Normal Shipping'
+          }
+        })
+      });
+    });
+
+    shippingOption?.addEventListener('click', () => {
+      wrapper.querySelectorAll('.pickup-option').forEach(opt => opt.classList.remove('active'));
+      shippingOption.classList.add('active');
+      if (storeInfo) storeInfo.classList.remove('active');
+      if (deliverySection) deliverySection.style.display = 'block';
+      updateCheckoutButtonState();
 
       fetch('/cart/update.js', {
         method: 'POST',
@@ -641,13 +752,12 @@
       });
     });
 
-    storeOption.addEventListener('click', () => {
+    storeOption?.addEventListener('click', () => {
+      wrapper.querySelectorAll('.pickup-option').forEach(opt => opt.classList.remove('active'));
       storeOption.classList.add('active');
-      shippingOption.classList.remove('active');
-      storeInfo.classList.add('active');
-
-      deliveryWrapper.style.display = 'none';
-      if (timeInput) timeInput.style.display = 'none';
+      if (storeInfo) storeInfo.classList.add('active');
+      if (deliverySection) deliverySection.style.display = 'none';
+      updateCheckoutButtonState();
 
       fetch('/cart/update.js', {
         method: 'POST',
@@ -684,14 +794,6 @@
 
     checkoutBtn.addEventListener('click', (e) => {
       if (storeOption.classList.contains('active')) {
-        const selectedStore = storeSelect.value;
-        if (!selectedStore) {
-          alert('Please select a pickup store');
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
-
         if (checkoutBtn.tagName === 'A') {
           e.preventDefault();
           const url = new URL(checkoutBtn.href, window.location.origin);

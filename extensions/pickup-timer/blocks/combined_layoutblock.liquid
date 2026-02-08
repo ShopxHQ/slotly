@@ -3,7 +3,30 @@
   "name": "Combined Pickup",
   "target": "section",
   "settings": [
-    
+    {
+      "type": "text",
+      "id": "delivery_title",
+      "label": "Delivery Date Label",
+      "default": "Select delivery date"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_shipping",
+      "label": "Show Shipping Option",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_pickup",
+      "label": "Show Store Pickup Option",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_normal",
+      "label": "Show Normal Shipping Option",
+      "default": true
+    },
     {
       "type": "checkbox",
       "id": "show_time",
@@ -24,9 +47,31 @@
     },
     {
       "type": "color",
+      "id": "normal_color",
+      "label": "Normal Shipping Background Color",
+      "default": "#5b8a9b"
+    },
+    {
+      "type": "color",
       "id": "active_border_color",
       "label": "Active Border Color",
       "default": "#000000"
+    },
+    {
+      "type": "html",
+      "id": "custom_html",
+      "label": "Custom HTML",
+      "default": "<div></div>"
+    },
+    {
+      "type": "range",
+      "id": "card_border_radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "label": "Card Border Radius",
+      "default": 10
     }
   ]
 }
@@ -37,22 +82,35 @@
   style="
     --shipping-color: {{ block.settings.shipping_color }};
     --store-pickup-color: {{ block.settings.store_pickup_color }};
+    --normal-color: {{ block.settings.normal_color }};
     --active-border-color: {{ block.settings.active_border_color }};
+    --card-radius: {{ block.settings.card_border_radius }}px;
   "
 >
   <div class="pickup-options">
-    <div class="pickup-option shipping">
-      <div class="pickup-option-icon">🚚</div>
-      <div class="pickup-option-label">Shipping</div>
-    </div>
+    {% if block.settings.show_normal %}
+      <div class="pickup-option normal-shipping">
+        <div class="pickup-option-icon">📦</div>
+        <div class="pickup-option-label">Normal Shipping</div>
+      </div>
+    {% endif %}
 
-    <div class="pickup-option store-pickup active">
-      <div class="pickup-option-icon">🏪</div>
-      <div class="pickup-option-label">Store Pickup</div>
-    </div>
+    {% if block.settings.show_shipping %}
+      <div class="pickup-option shipping">
+        <div class="pickup-option-icon">🚚</div>
+        <div class="pickup-option-label">Shipping</div>
+      </div>
+    {% endif %}
+
+    {% if block.settings.show_pickup %}
+      <div class="pickup-option store-pickup">
+        <div class="pickup-option-icon">🏪</div>
+        <div class="pickup-option-label">Store Pickup</div>
+      </div>
+    {% endif %}
   </div>
 
-  <div class="store-info active">
+  <div class="store-info">
     <select class="pickup-store-select">
       <option value="" disabled selected hidden>Select a store</option>
       {% for store in shop.metafields.store_config.store_rules.value %}
@@ -65,13 +123,13 @@
     </select>
   </div>
 
-  
-
+  <div class="delivery-date-section" style="display: none;">
+    <label>{{ block.settings.delivery_title }}</label>
     <div class="delivery-date-input-wrapper">
       <input
         class="delivery-date-input"
         readonly
-        placeholder="Select delivery date"
+        placeholder="{{ block.settings.delivery_title }}"
       />
       <button type="button" class="calendar-icon-btn">📅</button>
       <div class="delivery-calendar-popup"></div>
@@ -100,22 +158,38 @@
 /* PICKUP OPTIONS */
 .pickup-options {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 16px;
   margin-bottom: 20px;
 }
 
+.pickup-option.normal-shipping {
+  background: var(--normal-color);
+}
+
+.checkout-button-blurred {
+  filter: blur(2px) grayscale(0.5) !important;
+  pointer-events: none !important;
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
 .pickup-option {
-  padding: 20px 16px;
-  border-radius: 10px;
+  padding: 24px 12px;
+  border-radius: var(--card-radius);
   text-align: center;
   cursor: pointer;
   color: #fff;
   transition: all 0.3s ease;
   border: 3px solid transparent;
-  font-size: 15px;
+  font-size: 14px;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
 }
 
 .pickup-option::before {
@@ -186,7 +260,7 @@
 .pickup-store-select {
   width: 100%;
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: var(--card-radius);
   border: 2px solid #e0e0e0;
   font-size: 14px;
   background: #fff;
@@ -236,7 +310,7 @@
 .delivery-date-input {
   flex: 1;
   padding: 14px 16px;
-  border-radius: 10px 0 0 10px;
+  border-radius: var(--card-radius) 0 0 var(--card-radius);
   border: 2px solid #e0e0e0;
   font-size: 14px;
   background: #fff;
@@ -258,7 +332,7 @@
 
 .calendar-icon-btn {
   width: 50px;
-  border-radius: 0 10px 10px 0;
+  border-radius: 0 var(--card-radius) var(--card-radius) 0;
   border: 2px solid #e0e0e0;
   border-left: 2px solid #e0e0e0;
   background: var(--store-pickup-color);
@@ -284,7 +358,7 @@
   width: 100%;
   margin-top: 12px;
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: var(--card-radius);
   border: 2px solid #e0e0e0;
   font-size: 14px;
   background: #fff;
@@ -527,17 +601,18 @@
   /* ===============================
      ELEMENTS
   =============================== */
+  const normalOption = wrapper.querySelector('.pickup-option.normal-shipping');
   const shippingOption = wrapper.querySelector('.pickup-option.shipping');
   const storeOption = wrapper.querySelector('.pickup-option.store-pickup');
   const storeInfo = wrapper.querySelector('.store-info');
   const storeSelect = wrapper.querySelector('.pickup-store-select');
-  const deliveryWrapper = wrapper.querySelector('.delivery-date-input-wrapper');
+  const deliverySection = wrapper.querySelector('.delivery-date-section');
   const timeInput = wrapper.querySelector('.delivery-time-input');
   const dateInput = wrapper.querySelector('.delivery-date-input');
   const calendarBtn = wrapper.querySelector('.calendar-icon-btn');
   const calendarPopup = wrapper.querySelector('.delivery-calendar-popup');
 
-  function findCheckoutButton() {
+  function findAllCheckoutButtons() {
     const selectors = [
       'form[action="/cart"] button[name="checkout"]',
       'button[name="checkout"]',
@@ -547,36 +622,86 @@
       'a[href*="checkout"]',
     ];
 
-    for (const selector of selectors) {
-      const btn = document.querySelector(selector);
-      if (btn && btn.offsetHeight > 0) return btn;
-    }
+    let buttons = [];
+    selectors.forEach(selector => {
+      document.querySelectorAll(selector).forEach(btn => {
+        if (!buttons.includes(btn)) buttons.push(btn);
+      });
+    });
 
-    return Array.from(document.querySelectorAll('button, a')).find(el => {
+    Array.from(document.querySelectorAll('button, a')).forEach(el => {
       const text = el.textContent.toLowerCase().trim();
-      return (text.includes('checkout') || text.includes('check out')) && el.offsetHeight > 0;
+      if ((text === 'checkout' || text === 'check out') && !buttons.includes(el)) {
+        buttons.push(el);
+      }
+    });
+
+    return buttons;
+  }
+
+  function updateCheckoutButtonState() {
+    const buttons = findAllCheckoutButtons();
+    const hasActive = wrapper.querySelector('.pickup-option.active');
+    
+    buttons.forEach(btn => {
+      if (hasActive) {
+        btn.classList.remove('checkout-button-blurred');
+      } else {
+        btn.classList.add('checkout-button-blurred');
+      }
     });
   }
 
-  const checkoutBtn = findCheckoutButton();
+  // Initial check
+  updateCheckoutButtonState();
+
+  // Poll for checkout buttons to handle themes that load cart via AJAX
+  const pollInterval = setInterval(updateCheckoutButtonState, 1000);
+  // Stop polling after 10 seconds
+  setTimeout(() => clearInterval(pollInterval), 10000);
+
+  // MutationObserver to catch checkout buttons added dynamically
+  const observer = new MutationObserver(updateCheckoutButtonState);
+  observer.observe(document.body, { childList: true, subtree: true });
 
   let currentMonth = new Date();
 
   /* ===============================
      INITIAL STATE
   =============================== */
-  deliveryWrapper.style.display = 'none';
-  if (timeInput) timeInput.style.display = 'none';
+  if (deliverySection) deliverySection.style.display = 'none';
+  updateCheckoutButtonState();
 
   /* ===============================
      PICKUP TOGGLE
   =============================== */
+  normalOption?.addEventListener('click', () => {
+    wrapper.querySelectorAll('.pickup-option').forEach(opt => opt.classList.remove('active'));
+    normalOption.classList.add('active');
+    if (storeInfo) storeInfo.classList.remove('active');
+    if (deliverySection) deliverySection.style.display = 'none';
+    updateCheckoutButtonState();
+
+    fetch('/cart/update.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        attributes: {
+          'Pickup Store': '',
+          'Delivery Date': '',
+          'Delivery Time': '',
+          'Delivery Type': 'Normal Shipping'
+        }
+      })
+    });
+  });
+
   shippingOption?.addEventListener('click', () => {
+    wrapper.querySelectorAll('.pickup-option').forEach(opt => opt.classList.remove('active'));
     shippingOption.classList.add('active');
-    storeOption.classList.remove('active');
-    storeInfo.classList.remove('active');
-    deliveryWrapper.style.display = 'flex';
-    if (timeInput) timeInput.style.display = 'block';
+    if (storeInfo) storeInfo.classList.remove('active');
+    if (deliverySection) deliverySection.style.display = 'block';
+    updateCheckoutButtonState();
 
     fetch('/cart/update.js', {
       method: 'POST',
@@ -591,11 +716,11 @@
   });
 
   storeOption?.addEventListener('click', () => {
+    wrapper.querySelectorAll('.pickup-option').forEach(opt => opt.classList.remove('active'));
     storeOption.classList.add('active');
-    shippingOption.classList.remove('active');
-    storeInfo.classList.add('active');
-    deliveryWrapper.style.display = 'none';
-    if (timeInput) timeInput.style.display = 'none';
+    if (storeInfo) storeInfo.classList.add('active');
+    if (deliverySection) deliverySection.style.display = 'none';
+    updateCheckoutButtonState();
 
     fetch('/cart/update.js', {
       method: 'POST',
@@ -630,41 +755,40 @@
     });
   });
 
-  if (checkoutBtn) {
-    checkoutBtn.addEventListener('click', (e) => {
-      if (storeOption?.classList.contains('active')) {
-        const selectedStore = storeSelect?.value;
-        if (!selectedStore) {
-          alert('Please select a pickup store');
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[name="checkout"], .cart__checkout-button, [data-test-id*="checkout"], a[href="/checkout"], a[href*="checkout"]');
+    if (!btn) return;
 
-        if (checkoutBtn.tagName === 'A') {
-          e.preventDefault();
-          const url = new URL(checkoutBtn.href, window.location.origin);
-          url.searchParams.set('discount', 'FREEPICKUP');
-          window.location.href = url.toString();
-        } else {
-          const form = checkoutBtn.closest('form[action="/cart"]');
-          if (form) {
-            let discountInput = form.querySelector('input[name="discount"]');
-            if (!discountInput) {
-              discountInput = document.createElement('input');
-              discountInput.type = 'hidden';
-              discountInput.name = 'discount';
-              form.appendChild(discountInput);
-            }
-            discountInput.value = 'FREEPICKUP';
-          } else {
-            e.preventDefault();
-            window.location.href = `/checkout?discount=FREEPICKUP`;
+    if (btn.classList.contains('checkout-button-blurred')) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    if (storeOption?.classList.contains('active')) {
+      if (btn.tagName === 'A') {
+        e.preventDefault();
+        const url = new URL(btn.href, window.location.origin);
+        url.searchParams.set('discount', 'FREEPICKUP');
+        window.location.href = url.toString();
+      } else {
+        const form = btn.closest('form[action="/cart"]');
+        if (form) {
+          let discountInput = form.querySelector('input[name="discount"]');
+          if (!discountInput) {
+            discountInput = document.createElement('input');
+            discountInput.type = 'hidden';
+            discountInput.name = 'discount';
+            form.appendChild(discountInput);
           }
+          discountInput.value = 'FREEPICKUP';
+        } else {
+          e.preventDefault();
+          window.location.href = `/checkout?discount=FREEPICKUP`;
         }
       }
-    });
-  }
+    }
+  });
 
   /* ===============================
      CALENDAR RENDER
