@@ -12,11 +12,32 @@ export const loader = async ({ request }) => {
   console.log('Loader: savedConfig =', savedConfig);
   
   const config = savedConfig || {
-    earliestDays: 1,
-    furthestDays: 90,
-    availableDays: [],
-    blockedDateRules: [],
+    rules: [{
+      id: 'default',
+      name: 'Default Rule',
+      suburbs: '',
+      earliestDays: 1,
+      furthestDays: 90,
+      availableDays: [],
+      blockedDateRules: [],
+    }]
   };
+
+  if (!config.rules) {
+    config.rules = [{
+      id: 'default',
+      name: 'Default Rule',
+      suburbs: '',
+      earliestDays: config.earliestDays || 1,
+      furthestDays: config.furthestDays || 90,
+      availableDays: config.availableDays || [],
+      blockedDateRules: config.blockedDateRules || [],
+    }];
+    delete config.earliestDays;
+    delete config.furthestDays;
+    delete config.availableDays;
+    delete config.blockedDateRules;
+  }
   
   console.log('Loader: returning config =', config);
   
@@ -104,7 +125,7 @@ function CalendarPreview({ availableDays, blockedDates }) {
 
   const isDayAvailable = (dayIndex) => {
     const dayName = dayNames[dayIndex];
-    return availableDays.includes(dayName);
+    return (availableDays || []).includes(dayName);
   };
 
   const isDateBlocked = (day) => {
@@ -257,36 +278,29 @@ export default function Delivery() {
   const { initialConfig } = useLoaderData();
   const actionData = useActionData();
   
-  console.log('=== DELIVERY COMPONENT RENDER ===');
-  console.log('Component received initialConfig:', initialConfig);
-  
-  const [earliestDays, setEarliestDays] = useState(initialConfig?.earliestDays || 1);
-  const [furthestDays, setFurthestDays] = useState(initialConfig?.furthestDays || 90);
-  const [availableDays, setAvailableDays] = useState(initialConfig?.availableDays || []);
-  const [blockedDateRules, setBlockedDateRules] = useState(initialConfig?.blockedDateRules || []);
+  const [rules, setRules] = useState(initialConfig?.rules || []);
+  const [activeRuleId, setActiveRuleId] = useState(null);
   const [expandedRuleId, setExpandedRuleId] = useState(null);
 
-  console.log('Current state - earliestDays:', earliestDays, 'furthestDays:', furthestDays, 'availableDays:', availableDays);
-
   useEffect(() => {
-    console.log('=== USEEFFECT TRIGGERED ===');
-    console.log('useEffect: initialConfig changed:', initialConfig);
-    setEarliestDays(initialConfig?.earliestDays || 1);
-    setFurthestDays(initialConfig?.furthestDays || 90);
-    setAvailableDays(initialConfig?.availableDays || []);
-    setBlockedDateRules(initialConfig?.blockedDateRules || []);
+    const newRules = initialConfig?.rules || [];
+    setRules(newRules);
+    if (newRules.length > 0 && (!activeRuleId || !newRules.find(r => r.id === activeRuleId))) {
+      setActiveRuleId(newRules[0].id);
+    }
     setExpandedRuleId(null);
-    console.log('useEffect: State reset complete');
   }, [initialConfig]);
+
+  const activeRule = rules.find(r => r.id === activeRuleId) || rules[0];
 
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   const handleSubmit = (e) => {
     const config = {
-      earliestDays: parseInt(earliestDays),
-      furthestDays: furthestDays ? parseInt(furthestDays) : null,
-      availableDays: Array.isArray(availableDays) ? availableDays : [],
-      blockedDateRules: Array.isArray(blockedDateRules) ? blockedDateRules.filter(r => r.id && (r.applyTo === 'all' || (r.applyTo === 'single' && r.singleDate) || (r.applyTo === 'range' && r.fromDate && r.toDate))) : [],
+      rules: rules.map(rule => ({
+        ...rule,
+        blockedDateRules: Array.isArray(rule.blockedDateRules) ? rule.blockedDateRules.filter(r => r.id && (r.applyTo === 'all' || (r.applyTo === 'single' && r.singleDate) || (r.applyTo === 'range' && r.fromDate && r.toDate))) : [],
+      }))
     };
     const input = e.currentTarget.querySelector('input[name="config"]');
     if (input) {
@@ -295,14 +309,43 @@ export default function Delivery() {
   };
 
   const handleDayToggle = (day) => {
-    if (availableDays.includes(day)) {
-      setAvailableDays(availableDays.filter(d => d !== day));
-    } else {
-      setAvailableDays([...availableDays, day]);
+    if (!activeRule) return;
+    const newAvailableDays = (activeRule.availableDays || []).includes(day)
+      ? activeRule.availableDays.filter(d => d !== day)
+      : [...(activeRule.availableDays || []), day];
+    
+    updateActiveRule({ availableDays: newAvailableDays });
+  };
+
+  const updateActiveRule = (updates) => {
+    setRules(rules.map(r => r.id === activeRuleId ? { ...r, ...updates } : r));
+  };
+
+  const addRule = () => {
+    const newRule = {
+      id: Date.now().toString(),
+      name: `New Rule ${rules.length + 1}`,
+      suburbs: '',
+      earliestDays: 1,
+      furthestDays: 90,
+      availableDays: [],
+      blockedDateRules: [],
+    };
+    setRules([...rules, newRule]);
+    setActiveRuleId(newRule.id);
+  };
+
+  const deleteRule = (id) => {
+    if (rules.length <= 1) return;
+    const newRules = rules.filter(r => r.id !== id);
+    setRules(newRules);
+    if (activeRuleId === id) {
+      setActiveRuleId(newRules[0].id);
     }
   };
 
   const addBlockedDateRule = () => {
+    if (!activeRule) return;
     const newRule = {
       id: Date.now(),
       applyTo: "all",
@@ -310,25 +353,34 @@ export default function Delivery() {
       toDate: "",
       singleDate: "",
     };
-    setBlockedDateRules([...blockedDateRules, newRule]);
+    updateActiveRule({
+      blockedDateRules: [...(activeRule.blockedDateRules || []), newRule]
+    });
     setExpandedRuleId(newRule.id);
   };
 
   const deleteBlockedDateRule = (id) => {
-    setBlockedDateRules(blockedDateRules.filter(rule => rule.id !== id));
+    if (!activeRule) return;
+    updateActiveRule({
+      blockedDateRules: (activeRule.blockedDateRules || []).filter(rule => rule.id !== id)
+    });
   };
 
   const updateBlockedDateRule = (id, updates) => {
-    setBlockedDateRules(blockedDateRules.map(rule =>
-      rule.id === id ? { ...rule, ...updates } : rule
-    ));
+    if (!activeRule) return;
+    updateActiveRule({
+      blockedDateRules: (activeRule.blockedDateRules || []).map(rule =>
+        rule.id === id ? { ...rule, ...updates } : rule
+      )
+    });
   };
 
   const getBlockedDatesFromRules = () => {
+    if (!activeRule) return [];
     const blockedSet = new Set();
     const today = new Date();
 
-    blockedDateRules.forEach(rule => {
+    (activeRule.blockedDateRules || []).forEach(rule => {
       if (rule.applyTo === "range" && rule.fromDate && rule.toDate) {
         const [fromYear, fromMonth, fromDay] = rule.fromDate.split('-').map(Number);
         const [toYear, toMonth, toDay] = rule.toDate.split('-').map(Number);
@@ -359,6 +411,15 @@ export default function Delivery() {
     });
 
     return Array.from(blockedSet);
+  };
+
+  const inputStyle = {
+    width: "100%",
+    padding: "10px 12px",
+    border: "1px solid #d0d0d0",
+    borderRadius: "8px",
+    fontSize: "14px",
+    boxSizing: "border-box",
   };
 
   return (
@@ -396,382 +457,416 @@ export default function Delivery() {
 
       <div style={{
         display: "grid",
-        gridTemplateColumns: "1fr 380px",
+        gridTemplateColumns: "250px 1fr 380px",
         gap: "24px",
-        margin: "24px 0",
       }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          <div style={{
-            background: "white",
-            border: "1px solid #e5e5e5",
-            borderRadius: "10px",
-            padding: "20px",
-          }}>
-            <h3 style={{
-              fontSize: "14px",
-              fontWeight: "700",
-              color: "#333",
-              margin: "0 0 12px 0",
-            }}>
-              Choose earliest available date
-            </h3>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}>
-              <input
-                type="number"
-                min="0"
-                value={earliestDays}
-                onChange={(e) => setEarliestDays(parseInt(e.target.value) || 0)}
-                style={{
-                  flex: 1,
-                  padding: "10px 12px",
-                  border: "1px solid #d0d0d0",
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                }}
-              />
-              <span style={{
-                fontSize: "13px",
-                color: "#666",
-              }}>
-                days ahead
-              </span>
-            </div>
-          </div>
-
-          <div style={{
-            background: "white",
-            border: "1px solid #e5e5e5",
-            borderRadius: "10px",
-            padding: "20px",
-          }}>
-            <h3 style={{
-              fontSize: "14px",
-              fontWeight: "700",
-              color: "#333",
-              margin: "0 0 12px 0",
-            }}>
-              Choose furthest available date
-            </h3>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}>
-              <input
-                type="number"
-                min="0"
-                value={furthestDays}
-                onChange={(e) => setFurthestDays(parseInt(e.target.value) || 0)}
-                style={{
-                  flex: 1,
-                  padding: "10px 12px",
-                  border: "1px solid #d0d0d0",
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                }}
-              />
-              <span style={{
-                fontSize: "13px",
-                color: "#666",
-              }}>
-                days ahead
-              </span>
-            </div>
-          </div>
-
-          <div style={{
-            background: "white",
-            border: "1px solid #e5e5e5",
-            borderRadius: "10px",
-            padding: "20px",
-          }}>
-            <h3 style={{
-              fontSize: "14px",
-              fontWeight: "700",
-              color: "#333",
-              margin: "0 0 12px 0",
-            }}>
-              Available delivery dates:
-            </h3>
-            <div style={{
-              position: "relative",
-              marginBottom: "12px",
-            }}>
-              <div style={{
+        {/* Rules List Sidebar */}
+        <div style={{
+          background: "white",
+          border: "1px solid #e5e5e5",
+          borderRadius: "10px",
+          padding: "16px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+          height: "fit-content"
+        }}>
+          <h3 style={{ fontSize: "14px", fontWeight: "700", marginBottom: "8px" }}>Rules</h3>
+          {rules.map(rule => (
+            <div
+              key={rule.id}
+              onClick={() => setActiveRuleId(rule.id)}
+              style={{
                 padding: "10px 12px",
-                border: "1px solid #d0d0d0",
                 borderRadius: "8px",
-                fontSize: "13px",
-                color: "#999",
                 cursor: "pointer",
-                background: "white",
-              }}>
-                ⚙ Select days
+                background: activeRuleId === rule.id ? "#f0f0f0" : "transparent",
+                border: activeRuleId === rule.id ? "1px solid #d0d0d0" : "1px solid transparent",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center"
+              }}
+            >
+              <span style={{ fontSize: "13px", fontWeight: activeRuleId === rule.id ? "600" : "400" }}>
+                {rule.name}
+              </span>
+              {rules.length > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteRule(rule.id);
+                  }}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: "14px" }}
+                >
+                  🗑️
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addRule}
+            style={{
+              padding: "10px",
+              border: "1px dashed #d0d0d0",
+              borderRadius: "8px",
+              background: "none",
+              cursor: "pointer",
+              fontSize: "13px",
+              color: "#0073e6"
+            }}
+          >
+            + Add New Rule
+          </button>
+        </div>
+
+        {activeRule ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            {/* Rule Name & Suburbs */}
+            <div style={{
+              background: "white",
+              border: "1px solid #e5e5e5",
+              borderRadius: "10px",
+              padding: "20px",
+            }}>
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ display: "block", fontSize: "14px", fontWeight: "700", marginBottom: "8px" }}>Rule Name</label>
+                <input
+                  type="text"
+                  value={activeRule.name}
+                  onChange={(e) => updateActiveRule({ name: e.target.value })}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "14px", fontWeight: "700", marginBottom: "8px" }}>Suburbs / Postcodes (comma separated)</label>
+                <textarea
+                  value={activeRule.suburbs}
+                  onChange={(e) => updateActiveRule({ suburbs: e.target.value })}
+                  placeholder="e.g. 2000, 2001, Sydney, Melbourne"
+                  style={{
+                    ...inputStyle,
+                    minHeight: "100px",
+                    resize: "vertical"
+                  }}
+                />
               </div>
             </div>
 
             <div style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "6px",
+              background: "white",
+              border: "1px solid #e5e5e5",
+              borderRadius: "10px",
+              padding: "20px",
             }}>
-              {days.map(day => (
-                <button
-                  key={day}
-                  onClick={() => handleDayToggle(day)}
-                  style={{
-                    background: availableDays.includes(day) ? "#f0f0f0" : "white",
-                    border: "1px solid #d0d0d0",
-                    padding: "6px 12px",
-                    borderRadius: "6px",
-                    fontSize: "13px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.background = availableDays.includes(day) ? "#e8e8e8" : "#f9f9f9";
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.background = availableDays.includes(day) ? "#f0f0f0" : "white";
-                  }}
-                >
-                  {day}
-                  {availableDays.includes(day) && (
-                    <span style={{ fontSize: "12px", fontWeight: "bold" }}>✕</span>
-                  )}
-                </button>
-              ))}
+              <h3 style={{
+                fontSize: "14px",
+                fontWeight: "700",
+                color: "#333",
+                margin: "0 0 12px 0",
+              }}>
+                Choose earliest available date
+              </h3>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}>
+                <input
+                  type="number"
+                  min="0"
+                  value={activeRule.earliestDays}
+                  onChange={(e) => updateActiveRule({ earliestDays: parseInt(e.target.value) || 0 })}
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <span style={{
+                  fontSize: "13px",
+                  color: "#666",
+                }}>
+                  days ahead
+                </span>
+              </div>
             </div>
-          </div>
 
-          <div style={{
-            background: "white",
-            border: "1px solid #e5e5e5",
-            borderRadius: "10px",
-            padding: "20px",
-          }}>
-            <h3 style={{
-              fontSize: "14px",
-              fontWeight: "700",
-              color: "#333",
-              margin: "0 0 16px 0",
+            <div style={{
+              background: "white",
+              border: "1px solid #e5e5e5",
+              borderRadius: "10px",
+              padding: "20px",
             }}>
-              Blocked dates
-            </h3>
+              <h3 style={{
+                fontSize: "14px",
+                fontWeight: "700",
+                color: "#333",
+                margin: "0 0 12px 0",
+              }}>
+                Choose furthest available date
+              </h3>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}>
+                <input
+                  type="number"
+                  min="0"
+                  value={activeRule.furthestDays}
+                  onChange={(e) => updateActiveRule({ furthestDays: parseInt(e.target.value) || 0 })}
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <span style={{
+                  fontSize: "13px",
+                  color: "#666",
+                }}>
+                  days ahead
+                </span>
+              </div>
+            </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px" }}>
-              {blockedDateRules.map((rule, index) => {
-                const isExpanded = expandedRuleId === rule.id;
-
-                return (
-                  <div
-                    key={rule.id}
+            <div style={{
+              background: "white",
+              border: "1px solid #e5e5e5",
+              borderRadius: "10px",
+              padding: "20px",
+            }}>
+              <h3 style={{
+                fontSize: "14px",
+                fontWeight: "700",
+                color: "#333",
+                margin: "0 0 12px 0",
+              }}>
+                Available delivery dates:
+              </h3>
+              <div style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "6px",
+              }}>
+                {days.map(day => (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => handleDayToggle(day)}
                     style={{
-                      border: "1px solid #e5e5e5",
-                      borderRadius: "8px",
-                      overflow: "hidden",
+                      background: (activeRule.availableDays || []).includes(day) ? "#f0f0f0" : "white",
+                      border: "1px solid #d0d0d0",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      transition: "all 0.2s",
                     }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "12px 16px",
-                        background: "#f9f9f9",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => setExpandedRuleId(isExpanded ? null : rule.id)}
-                    >
-                      <span style={{ fontSize: "14px", fontWeight: "600", color: "#333" }}>
-                        Blocked dates {index + 1}
-                      </span>
-                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteBlockedDateRule(rule.id);
-                          }}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#dc3545",
-                            cursor: "pointer",
-                            fontSize: "18px",
-                            padding: "0",
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                        >
-                          🗑️
-                        </button>
-                        <span style={{
-                          fontSize: "16px",
-                          color: "#999",
-                          transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
-                          transition: "transform 0.2s",
-                        }}>
-                          ▼
-                        </span>
-                      </div>
-                    </div>
+                    {day}
+                    {(activeRule.availableDays || []).includes(day) && (
+                      <span style={{ fontSize: "12px", fontWeight: "bold" }}>✕</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                    {isExpanded && (
-                      <div style={{
-                        padding: "16px",
-                        background: "white",
-                        borderTop: "1px solid #e5e5e5",
-                      }}>
-                        <div style={{ marginBottom: "16px" }}>
-                          <label style={{
-                            display: "block",
-                            fontSize: "13px",
-                            fontWeight: "600",
-                            color: "#333",
-                            marginBottom: "8px",
-                          }}>
-                            Apply to
-                          </label>
-                          <select
-                            value={rule.applyTo}
-                            onChange={(e) => updateBlockedDateRule(rule.id, { applyTo: e.target.value })}
+            <div style={{
+              background: "white",
+              border: "1px solid #e5e5e5",
+              borderRadius: "10px",
+              padding: "20px",
+            }}>
+              <h3 style={{
+                fontSize: "14px",
+                fontWeight: "700",
+                color: "#333",
+                margin: "0 0 16px 0",
+              }}>
+                Blocked dates
+              </h3>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px" }}>
+                {(activeRule.blockedDateRules || []).map((rule, index) => {
+                  const isExpanded = expandedRuleId === rule.id;
+
+                  return (
+                    <div
+                      key={rule.id}
+                      style={{
+                        border: "1px solid #e5e5e5",
+                        borderRadius: "8px",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "12px 16px",
+                          background: "#f9f9f9",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => setExpandedRuleId(isExpanded ? null : rule.id)}
+                      >
+                        <span style={{ fontSize: "14px", fontWeight: "600", color: "#333" }}>
+                          Blocked dates {index + 1}
+                        </span>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteBlockedDateRule(rule.id);
+                            }}
                             style={{
-                              width: "100%",
-                              padding: "8px 12px",
-                              border: "1px solid #d0d0d0",
-                              borderRadius: "6px",
-                              fontSize: "13px",
+                              background: "none",
+                              border: "none",
+                              color: "#dc3545",
                               cursor: "pointer",
+                              fontSize: "18px",
+                              padding: "0",
+                              display: "flex",
+                              alignItems: "center",
                             }}
                           >
-                            <option value="all">All dates</option>
-                            <option value="range">Date range</option>
-                            <option value="single">Single date</option>
-                          </select>
-                        </div>
-
-                        {rule.applyTo === "range" && (
-                          <div style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
-                            gap: "12px",
-                            marginBottom: "16px",
+                            🗑️
+                          </button>
+                          <span style={{
+                            fontSize: "16px",
+                            color: "#999",
+                            transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                            transition: "transform 0.2s",
                           }}>
-                            <div>
-                              <label style={{
-                                display: "block",
-                                fontSize: "12px",
-                                fontWeight: "600",
-                                color: "#666",
-                                marginBottom: "6px",
-                              }}>
-                                From
-                              </label>
-                              <input
-                                type="date"
-                                value={rule.fromDate}
-                                onChange={(e) => updateBlockedDateRule(rule.id, { fromDate: e.target.value })}
-                                style={{
-                                  width: "100%",
-                                  padding: "8px 12px",
-                                  border: "1px solid #d0d0d0",
-                                  borderRadius: "6px",
-                                  fontSize: "13px",
-                                }}
-                              />
-                            </div>
-                            <div>
-                              <label style={{
-                                display: "block",
-                                fontSize: "12px",
-                                fontWeight: "600",
-                                color: "#666",
-                                marginBottom: "6px",
-                              }}>
-                                To
-                              </label>
-                              <input
-                                type="date"
-                                value={rule.toDate}
-                                onChange={(e) => updateBlockedDateRule(rule.id, { toDate: e.target.value })}
-                                style={{
-                                  width: "100%",
-                                  padding: "8px 12px",
-                                  border: "1px solid #d0d0d0",
-                                  borderRadius: "6px",
-                                  fontSize: "13px",
-                                }}
-                              />
-                            </div>
-                          </div>
-                        )}
+                            ▼
+                          </span>
+                        </div>
+                      </div>
 
-                        {rule.applyTo === "single" && (
+                      {isExpanded && (
+                        <div style={{
+                          padding: "16px",
+                          background: "white",
+                          borderTop: "1px solid #e5e5e5",
+                        }}>
                           <div style={{ marginBottom: "16px" }}>
                             <label style={{
                               display: "block",
-                              fontSize: "12px",
+                              fontSize: "13px",
                               fontWeight: "600",
-                              color: "#666",
-                              marginBottom: "6px",
+                              color: "#333",
+                              marginBottom: "8px",
                             }}>
-                              Pick a date
+                              Apply to
                             </label>
-                            <input
-                              type="date"
-                              value={rule.singleDate}
-                              onChange={(e) => updateBlockedDateRule(rule.id, { singleDate: e.target.value })}
-                              style={{
-                                width: "100%",
-                                padding: "8px 12px",
-                                border: "1px solid #d0d0d0",
-                                borderRadius: "6px",
-                                fontSize: "13px",
-                              }}
-                            />
+                            <select
+                              value={rule.applyTo}
+                              onChange={(e) => updateBlockedDateRule(rule.id, { applyTo: e.target.value })}
+                              style={inputStyle}
+                            >
+                              <option value="all">All dates</option>
+                              <option value="range">Date range</option>
+                              <option value="single">Single date</option>
+                            </select>
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+
+                          {rule.applyTo === "range" && (
+                            <div style={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr 1fr",
+                              gap: "12px",
+                              marginBottom: "16px",
+                            }}>
+                              <div>
+                                <label style={{
+                                  display: "block",
+                                  fontSize: "12px",
+                                  fontWeight: "600",
+                                  color: "#666",
+                                  marginBottom: "6px",
+                                }}>
+                                  From
+                                </label>
+                                <input
+                                  type="date"
+                                  value={rule.fromDate}
+                                  onChange={(e) => updateBlockedDateRule(rule.id, { fromDate: e.target.value })}
+                                  style={inputStyle}
+                                />
+                              </div>
+                              <div>
+                                <label style={{
+                                  display: "block",
+                                  fontSize: "12px",
+                                  fontWeight: "600",
+                                  color: "#666",
+                                  marginBottom: "6px",
+                                }}>
+                                  To
+                                </label>
+                                <input
+                                  type="date"
+                                  value={rule.toDate}
+                                  onChange={(e) => updateBlockedDateRule(rule.id, { toDate: e.target.value })}
+                                  style={inputStyle}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {rule.applyTo === "single" && (
+                            <div style={{ marginBottom: "16px" }}>
+                              <label style={{
+                                display: "block",
+                                fontSize: "12px",
+                                fontWeight: "600",
+                                color: "#666",
+                                marginBottom: "6px",
+                              }}>
+                                Pick a date
+                              </label>
+                              <input
+                                type="date"
+                                value={rule.singleDate}
+                                onChange={(e) => updateBlockedDateRule(rule.id, { singleDate: e.target.value })}
+                                style={inputStyle}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={addBlockedDateRule}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  border: "1px solid #d0d0d0",
+                  borderRadius: "8px",
+                  background: "white",
+                  fontSize: "13px",
+                  color: "#0073e6",
+                  cursor: "pointer",
+                  fontWeight: "500",
+                  transition: "all 0.2s",
+                }}
+              >
+                + Add blocked dates
+              </button>
             </div>
-
-            <button
-              onClick={addBlockedDateRule}
-              style={{
-                width: "100%",
-                padding: "12px",
-                border: "1px solid #d0d0d0",
-                borderRadius: "8px",
-                background: "white",
-                fontSize: "13px",
-                color: "#0073e6",
-                cursor: "pointer",
-                fontWeight: "500",
-                transition: "all 0.2s",
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = "#f9f9f9";
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = "white";
-              }}
-            >
-              + Add blocked dates
-            </button>
           </div>
-        </div>
+        ) : (
+          <div style={{ padding: "40px", textAlign: "center", color: "#666" }}>
+            Select a rule or add a new one to get started.
+          </div>
+        )}
 
-        <CalendarPreview availableDays={availableDays} blockedDates={getBlockedDatesFromRules()} />
+        <CalendarPreview availableDays={activeRule?.availableDays || []} blockedDates={getBlockedDatesFromRules()} />
       </div>
     </s-page>
   );

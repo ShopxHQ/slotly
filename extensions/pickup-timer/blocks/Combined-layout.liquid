@@ -28,6 +28,24 @@
       "default": true
     },
     {
+      "type": "text",
+      "id": "shipping_label",
+      "label": "Shipping Option Label",
+      "default": "Shipping"
+    },
+    {
+      "type": "text",
+      "id": "pickup_label",
+      "label": "Store Pickup Option Label",
+      "default": "Store Pickup"
+    },
+    {
+      "type": "text",
+      "id": "normal_shipping_label",
+      "label": "Normal Shipping Option Label",
+      "default": "Normal Shipping"
+    },
+    {
       "type": "checkbox",
       "id": "show_time",
       "label": "Show time picker",
@@ -71,7 +89,7 @@
       "step": 1,
       "unit": "px",
       "label": "Card Border Radius",
-      "default": 10
+      "default": 0
     }
   ]
 }
@@ -91,8 +109,8 @@
 /* PICKUP OPTIONS */
 .pickup-options {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 0;
   margin-bottom: 20px;
 }
 
@@ -108,21 +126,21 @@
 }
 
 .pickup-option {
-  padding: 24px 12px;
+  padding: 12px 8px;
   border-radius: var(--card-radius, 10px);
   text-align: center;
   cursor: pointer;
   color: #fff;
   transition: all 0.3s ease;
-  border: 3px solid transparent;
-  font-size: 14px;
+  border: 2px solid transparent;
+  font-size: 13px;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 120px;
+  min-height: 80px;
 }
 
 .pickup-option::before {
@@ -157,15 +175,15 @@
 }
 
 .pickup-option-icon {
-  font-size: 28px;
-  margin-bottom: 8px;
+  font-size: 20px;
+  margin-bottom: 4px;
   display: block;
 }
 
 .pickup-option-label {
   font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.3px;
+  font-size: 13px;
+  letter-spacing: 0.2px;
 }
 
 /* STORE INFO */
@@ -529,6 +547,9 @@
     normalColor: '{{ block.settings.normal_color }}',
     activeBorderColor: '{{ block.settings.active_border_color }}',
     deliveryTitle: '{{ block.settings.delivery_title }}',
+    shippingLabel: '{{ block.settings.shipping_label }}',
+    pickupLabel: '{{ block.settings.pickup_label }}',
+    normalShippingLabel: '{{ block.settings.normal_shipping_label }}',
     showShipping: {{ block.settings.show_shipping | json }},
     showPickup: {{ block.settings.show_pickup | json }},
     showNormal: {{ block.settings.show_normal | json }},
@@ -643,21 +664,21 @@
     const normalShippingHTML = CONFIG.showNormal
       ? `<div class="pickup-option normal-shipping">
           <div class="pickup-option-icon">📦</div>
-          <div class="pickup-option-label">Normal Shipping</div>
+          <div class="pickup-option-label">${CONFIG.normalShippingLabel}</div>
         </div>`
       : '';
 
     const shippingHTML = CONFIG.showShipping
       ? `<div class="pickup-option shipping">
           <div class="pickup-option-icon">🚚</div>
-          <div class="pickup-option-label">Shipping</div>
+          <div class="pickup-option-label">${CONFIG.shippingLabel}</div>
         </div>`
       : '';
 
     const pickupHTML = CONFIG.showPickup
       ? `<div class="pickup-option store-pickup">
           <div class="pickup-option-icon">🏪</div>
-          <div class="pickup-option-label">Store Pickup</div>
+          <div class="pickup-option-label">${CONFIG.pickupLabel}</div>
         </div>`
       : '';
 
@@ -677,7 +698,7 @@
 
       <div class="delivery-date-section" style="display: none;">
         <div class="delivery-date-input-wrapper">
-          <input class="delivery-date-input" readonly placeholder="Select delivery date">
+          <input class="delivery-date-input" readonly placeholder="${CONFIG.deliveryTitle}">
           <button type="button" class="calendar-icon-btn">📅</button>
           <div class="delivery-calendar-popup"></div>
         </div>
