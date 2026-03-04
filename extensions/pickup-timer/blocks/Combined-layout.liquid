@@ -1,6 +1,6 @@
 {% schema %}
 {
-  "name": "Combined Pickup",
+  "name": "Combined Pickup Embed",
   "target": "body",
   "settings": [
     {
@@ -89,29 +89,161 @@
       "step": 1,
       "unit": "px",
       "label": "Card Border Radius",
-      "default": 0
+      "default": 10
+    },
+    {
+      "type": "header",
+      "content": "Shipping Notes"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_shipping_note_1",
+      "label": "Show Shipping Note 1",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "shipping_note_1_heading",
+      "label": "Shipping Note 1 Heading",
+      "default": "Shipping Note 1"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_shipping_note_2",
+      "label": "Show Shipping Note 2",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "shipping_note_2_heading",
+      "label": "Shipping Note 2 Heading",
+      "default": "Shipping Note 2"
+    },
+    {
+      "type": "text",
+      "id": "custom_checkout_selector",
+      "label": "Custom Checkout Button Selector",
+      "info": "Optional: CSS selector if the checkout button is not being blurred (e.g. .custom-checkout-btn)"
+    },
+    {
+      "type": "select",
+      "id": "options_layout",
+      "label": "Options Layout",
+      "options": [
+        { "value": "stacked", "label": "Stacked (Vertical)" },
+        { "value": "grid", "label": "Grid (Horizontal)" }
+      ],
+      "default": "stacked"
+    },
+    {
+      "type": "header",
+      "content": "Additional Yes/No Checkbox"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_yes_no",
+      "label": "Show Yes/No Checkbox",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "yes_no_label",
+      "label": "Checkbox Label",
+      "default": "Do you agree?"
+    },
+    {
+      "type": "text",
+      "id": "yes_text",
+      "label": "Yes Text",
+      "default": "Yes"
+    },
+    {
+      "type": "text",
+      "id": "no_text",
+      "label": "No Text",
+      "default": "No"
     }
   ]
 }
 {% endschema %}
 
 <style>
+.suburb-validation-section {
+  animation: slideDown 0.3s ease;
+}
+
+.suburb-input:focus {
+  outline: none;
+  border-color: var(--store-pickup-color) !important;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+.suburb-check-btn:hover {
+  filter: brightness(0.9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.delivery-picker-controls {
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .combined-wrapper {
   margin: 0;
   padding: 0;
   font-family: inherit;
-  max-width: 100%;
-  width: 100%;
-  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  display: block !important;
   background: transparent;
+  box-sizing: border-box;
+  clear: both;
+  align-self: stretch !important;
+}
+
+.combined-wrapper * {
+  box-sizing: border-box;
 }
 
 /* PICKUP OPTIONS */
 .pickup-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-  gap: 0;
+  display: grid !important;
+  width: 100% !important;
+  {% if block.settings.options_layout == 'stacked' %}
+    grid-template-columns: 1fr !important;
+  {% else %}
+    grid-template-columns: repeat(3, 1fr) !important;
+    {% if block.settings.show_normal == false or block.settings.show_shipping == false or block.settings.show_pickup == false %}
+       grid-template-columns: repeat(2, 1fr) !important;
+    {% endif %}
+    {% if block.settings.show_normal and block.settings.show_shipping and block.settings.show_pickup %}
+       grid-template-columns: repeat(3, 1fr) !important;
+    {% endif %}
+    {% comment %} Handle single option case {% endcomment %}
+    {% assign active_count = 0 %}
+    {% if block.settings.show_normal %}{% assign active_count = active_count | plus: 1 %}{% endif %}
+    {% if block.settings.show_shipping %}{% assign active_count = active_count | plus: 1 %}{% endif %}
+    {% if block.settings.show_pickup %}{% assign active_count = active_count | plus: 1 %}{% endif %}
+    {% if active_count == 1 %}
+       grid-template-columns: 1fr !important;
+    {% endif %}
+  {% endif %}
+  gap: 12px;
   margin-bottom: 20px;
+}
+
+@media (max-width: 480px) {
+  .pickup-options {
+    {% if block.settings.options_layout == 'stacked' %}
+      grid-template-columns: 1fr !important;
+    {% else %}
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)) !important;
+    {% endif %}
+  }
 }
 
 .pickup-option.normal-shipping {
@@ -126,6 +258,7 @@
 }
 
 .pickup-option {
+  width: 100% !important;
   padding: 12px 8px;
   border-radius: var(--card-radius, 10px);
   text-align: center;
@@ -135,7 +268,7 @@
   border: 2px solid transparent;
   font-size: 13px;
   position: relative;
-  overflow: hidden;
+  overflow: visible !important;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -184,6 +317,7 @@
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.2px;
+  white-space: nowrap !important;
 }
 
 /* STORE INFO */
@@ -433,7 +567,6 @@
 /* MOBILE RESPONSIVENESS */
 @media (max-width: 480px) {
   .pickup-options {
-    grid-template-columns: 1fr;
     gap: 12px;
   }
 
@@ -500,41 +633,77 @@
     Thursday: 4, Friday: 5, Saturday: 6
   };
 
+  let matchedRule = null;
+
+  function findMatchedRule(suburbOrPostcode) {
+    if (!suburbOrPostcode) return null;
+    if (!Array.isArray(deliveryConfig.rules)) {
+      if (deliveryConfig.earliestDays) return deliveryConfig;
+      return null;
+    }
+
+    const input = suburbOrPostcode.toLowerCase().trim();
+    return deliveryConfig.rules.find(rule => {
+      if (!rule.suburbs) return false;
+      const ruleSuburbs = rule.suburbs.split(',').map(s => s.toLowerCase().trim());
+      return ruleSuburbs.includes(input);
+    });
+  }
+
   function isDateBlocked(date) {
-    const dateStr = date.toISOString().split('T')[0];
-    const day = date.getDay();
+    const ruleToUse = matchedRule || (Array.isArray(deliveryConfig.rules) && deliveryConfig.rules.length > 0 ? null : deliveryConfig);
+    if (!ruleToUse) return true;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const earliestDays = deliveryConfig.earliestDays ? parseInt(deliveryConfig.earliestDays) : 0;
-    const furthestDays = deliveryConfig.furthestDays ? parseInt(deliveryConfig.furthestDays) : null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
 
-    const earliestDate = new Date(today);
-    earliestDate.setDate(today.getDate() + earliestDays);
-
-    if (date < earliestDate) return true;
-
-    if (furthestDays !== null) {
-      const furthestDate = new Date(today);
-      furthestDate.setDate(today.getDate() + furthestDays);
-      if (date > furthestDate) return true;
+    if (ruleToUse.earliestHours) {
+      const now = new Date();
+      const minDate = new Date(now.getTime() + (Number(ruleToUse.earliestHours) * 60 * 60 * 1000));
+      const minDateStartOfDay = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
+      if (date < minDateStartOfDay) return true;
+    } else if (ruleToUse.earliestDays) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const min = new Date(today);
+      min.setDate(today.getDate() + Number(ruleToUse.earliestDays));
+      if (date < min) return true;
     }
 
-    if (Array.isArray(deliveryConfig.availableDays) && deliveryConfig.availableDays.length) {
-      const allowed = deliveryConfig.availableDays.map(d => DAY_MAP[d]);
-      if (!allowed.includes(day)) return true;
+    if (ruleToUse.furthestDays) {
+      const max = new Date(today);
+      max.setDate(today.getDate() + Number(ruleToUse.furthestDays));
+      if (date > max) return true;
     }
 
-    if (Array.isArray(deliveryConfig.blockedDateRules)) {
-      for (const rule of deliveryConfig.blockedDateRules) {
-        if (rule.applyTo === 'single' && rule.singleDate === dateStr) return true;
+    if (
+      Array.isArray(ruleToUse.availableDays) &&
+      ruleToUse.availableDays.length
+    ) {
+      const allowed = ruleToUse.availableDays.map(d => DAY_MAP[d]);
+      if (!allowed.includes(date.getDay())) return true;
+    }
+
+    if (Array.isArray(ruleToUse.blockedDateRules)) {
+      for (const rule of ruleToUse.blockedDateRules) {
+        if (rule.applyTo === 'single' && rule.singleDate === dateStr) {
+          return true;
+        }
+
         if (
           rule.applyTo === 'range' &&
           rule.fromDate &&
           rule.toDate &&
           dateStr >= rule.fromDate &&
           dateStr <= rule.toDate
-        ) return true;
+        ) {
+          return true;
+        }
       }
     }
 
@@ -556,6 +725,15 @@
     showTime: {{ block.settings.show_time | json }},
     cardBorderRadius: {{ block.settings.card_border_radius | json }},
     customHtml: {{ block.settings.custom_html | json }},
+    showShippingNote1: {{ block.settings.show_shipping_note_1 | json }},
+    shippingNote1Heading: {{ block.settings.shipping_note_1_heading | json }},
+    showShippingNote2: {{ block.settings.show_shipping_note_2 | json }},
+    shippingNote2Heading: {{ block.settings.shipping_note_2_heading | json }},
+    showYesNo: {{ block.settings.show_yes_no | json }},
+    yesNoLabel: {{ block.settings.yes_no_label | json }},
+    yesText: {{ block.settings.yes_text | json }},
+    noText: {{ block.settings.no_text | json }},
+    customCheckoutSelector: {{ block.settings.custom_checkout_selector | json }},
     storeRules: storeRules,
     deliveryConfig: deliveryConfig
   };
@@ -572,6 +750,10 @@
       'a[href="/checkout"]',
       'a[href*="checkout"]',
     ];
+
+    if (CONFIG.customCheckoutSelector) {
+      selectors.unshift(CONFIG.customCheckoutSelector);
+    }
 
     for (const selector of selectors) {
       const btn = document.querySelector(selector);
@@ -597,7 +779,8 @@
   }
 
   function init() {
-    if (document.querySelector('[data-combined-wrapper-initialized]')) return;
+    const wrapperId = 'combined-wrapper-global-{{ block.id }}';
+    if (document.getElementById(wrapperId)) return;
 
     const checkoutBtn = findCheckoutButton();
 
@@ -621,6 +804,7 @@
     }
 
     const wrapper = document.createElement('div');
+    wrapper.id = wrapperId;
     wrapper.className = 'combined-wrapper';
     wrapper.setAttribute('data-combined-wrapper-initialized', 'true');
 
@@ -632,8 +816,41 @@
 
     function updateCheckoutButtonState() {
       if (!checkoutBtn) return;
-      const hasActive = wrapper.querySelector('.pickup-option.active');
-      if (hasActive) {
+      const activeOption = wrapper.querySelector('.pickup-option.active');
+      
+      let isComplete = false;
+
+      if (activeOption) {
+        if (activeOption.classList.contains('normal-shipping')) {
+          isComplete = true;
+        } else if (activeOption.classList.contains('shipping')) {
+          const hasDate = dateInput && dateInput.value.trim() !== '';
+          isComplete = !!matchedRule && hasDate;
+        } else if (activeOption.classList.contains('store-pickup')) {
+          isComplete = storeSelect && storeSelect.value !== '';
+        }
+      }
+
+      // Check Yes/No if enabled
+      if (isComplete && CONFIG.showYesNo) {
+        const checked = wrapper.querySelector('.yes-no-input:checked');
+        if (!checked) {
+          isComplete = false;
+        }
+      }
+
+      // Check if shipping notes are showing, they should be "done" (next button clicked)
+      // Actually, once they are hidden it means they are done.
+      if (activeOption && activeOption.classList.contains('shipping')) {
+        if (CONFIG.showShippingNote1 && note1Section && note1Section.style.display !== 'none') isComplete = false;
+        if (CONFIG.showShippingNote2 && note2Section && note2Section.style.display !== 'none') isComplete = false;
+        // Also if date picker is still showing, it's not complete
+        if (dateInputWrapper && dateInputWrapper.style.display !== 'none') isComplete = false;
+        // If suburb is still showing, it's not complete
+        if (suburbValidationSection && suburbValidationSection.style.display !== 'none') isComplete = false;
+      }
+
+      if (isComplete) {
         checkoutBtn.classList.remove('checkout-button-blurred');
       } else {
         checkoutBtn.classList.add('checkout-button-blurred');
@@ -697,14 +914,56 @@
       </div>
 
       <div class="delivery-date-section" style="display: none;">
-        <div class="delivery-date-input-wrapper">
-          <input class="delivery-date-input" readonly placeholder="${CONFIG.deliveryTitle}">
-          <button type="button" class="calendar-icon-btn">📅</button>
-          <div class="delivery-calendar-popup"></div>
+        <div class="suburb-validation-section" style="margin-bottom: 16px;">
+          <label style="font-weight: 700; margin-bottom: 8px; display: block; color: #333; font-size: 14px;">Enter Suburb or Postcode</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" class="suburb-input" placeholder="e.g. 2000 or Sydney" style="flex: 1; padding: 12px; border: 2px solid #e0e0e0; border-radius: var(--card-radius); font-size: 14px;" />
+            <button type="button" class="suburb-check-btn" style="padding: 10px 20px; background: var(--store-pickup-color); color: white; border: none; border-radius: var(--card-radius); cursor: pointer; font-weight: 600; font-size: 14px;">Check</button>
+          </div>
+          <p class="suburb-message" style="font-size: 12px; margin-top: 8px; display: none; font-weight: 500;"></p>
         </div>
 
-        ${timeInputHTML}
+        <div class="delivery-picker-controls" style="display: none;">
+          <label class="delivery-date-label">${CONFIG.deliveryTitle}</label>
+          <div class="delivery-date-input-wrapper">
+            <input class="delivery-date-input" readonly placeholder="${CONFIG.deliveryTitle}">
+            <button type="button" class="calendar-icon-btn">📅</button>
+            <div class="delivery-calendar-popup"></div>
+          </div>
+
+          ${timeInputHTML}
+          
+          ${CONFIG.showShippingNote1 ? `
+            <div class="shipping-note-wrapper shipping-note-1-section" style="margin-top: 16px; display: none;">
+              <label style="font-weight: 700; margin-bottom: 8px; display: block; color: #333; font-size: 14px;">${CONFIG.shippingNote1Heading}</label>
+              <textarea class="shipping-note-1" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: var(--card-radius); font-size: 14px; min-height: 80px; resize: vertical;"></textarea>
+              <button type="button" class="shipping-note-1-next" style="margin-top: 8px; padding: 10px 20px; background: var(--store-pickup-color); color: white; border: none; border-radius: var(--card-radius); cursor: pointer; font-weight: 600; font-size: 14px; width: 100%;">Next</button>
+            </div>
+          ` : ''}
+
+          ${CONFIG.showShippingNote2 ? `
+            <div class="shipping-note-wrapper shipping-note-2-section" style="margin-top: 16px; display: none;">
+              <label style="font-weight: 700; margin-bottom: 8px; display: block; color: #333; font-size: 14px;">${CONFIG.shippingNote2Heading}</label>
+              <textarea class="shipping-note-2" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: var(--card-radius); font-size: 14px; min-height: 80px; resize: vertical;"></textarea>
+              <button type="button" class="shipping-note-2-next" style="margin-top: 8px; padding: 10px 20px; background: var(--store-pickup-color); color: white; border: none; border-radius: var(--card-radius); cursor: pointer; font-weight: 600; font-size: 14px; width: 100%;">Next</button>
+            </div>
+          ` : ''}
+        </div>
       </div>
+
+      ${CONFIG.showYesNo ? `
+        <div class="yes-no-checkbox-wrapper" style="margin-top: 16px; padding: 16px; border: 2px solid #e0e0e0; border-radius: var(--card-radius); background: #f9f9f9; display: none;">
+          <label style="font-weight: 700; margin-bottom: 12px; display: block; color: #333; font-size: 14px;">${CONFIG.yesNoLabel} <span style="color: #d32f2f;">*</span></label>
+          <div style="display: flex; gap: 24px; align-items: center;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; font-weight: 500; color: #444;">
+              <input type="radio" name="yes_no_choice" value="Yes" class="yes-no-input" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--store-pickup-color);"> ${CONFIG.yesText}
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; font-weight: 500; color: #444;">
+              <input type="radio" name="yes_no_choice" value="No" class="yes-no-input" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--store-pickup-color);"> ${CONFIG.noText}
+            </label>
+          </div>
+        </div>
+      ` : ''}
 
       ${CONFIG.customHtml ? `<div class="custom-html-wrapper">${CONFIG.customHtml}</div>` : ''}
     `;
@@ -715,15 +974,43 @@
     const storeInfo = wrapper.querySelector('.store-info');
     const storeSelect = wrapper.querySelector('.pickup-store-select');
     const deliverySection = wrapper.querySelector('.delivery-date-section');
-    const timeInput = wrapper.querySelector('.delivery-time-input');
     const dateInput = wrapper.querySelector('.delivery-date-input');
     const calendarBtn = wrapper.querySelector('.calendar-icon-btn');
     const calendarPopup = wrapper.querySelector('.delivery-calendar-popup');
+    
+    const suburbValidationSection = wrapper.querySelector('.suburb-validation-section');
+    const dateInputWrapper = wrapper.querySelector('.delivery-date-input-wrapper');
+    const timeInput = wrapper.querySelector('.delivery-time-input');
+    const note1Section = wrapper.querySelector('.shipping-note-1-section');
+    const note2Section = wrapper.querySelector('.shipping-note-2-section');
+    const yesNoWrapper = wrapper.querySelector('.yes-no-checkbox-wrapper');
+
+    const note1Next = wrapper.querySelector('.shipping-note-1-next');
+    const note2Next = wrapper.querySelector('.shipping-note-2-next');
+
+    const suburbInput = wrapper.querySelector('.suburb-input');
+    const suburbCheckBtn = wrapper.querySelector('.suburb-check-btn');
+    const suburbMessage = wrapper.querySelector('.suburb-message');
+    const deliveryPickerControls = wrapper.querySelector('.delivery-picker-controls');
+    
+    const shippingNote1 = wrapper.querySelector('.shipping-note-1');
+    const shippingNote2 = wrapper.querySelector('.shipping-note-2');
+    const yesNoInputs = wrapper.querySelectorAll('.yes-no-input');
+    const pickupOptionsContainer = wrapper.querySelector('.pickup-options');
 
     let currentMonth = new Date();
 
     if (deliverySection) deliverySection.style.display = 'none';
     updateCheckoutButtonState();
+
+    // Auto-select if only one option is available
+    const activeOptions = [normalOption, shippingOption, storeOption].filter(opt => opt !== null);
+    if (activeOptions.length === 1) {
+      if (pickupOptionsContainer) pickupOptionsContainer.style.setProperty('display', 'none', 'important');
+      setTimeout(() => {
+        activeOptions[0].click();
+      }, 100);
+    }
 
     fetch('/cart.js')
       .then(r => r.json())
@@ -731,13 +1018,32 @@
         if (cart.attributes && cart.attributes['Pickup Store'] && storeSelect) {
           storeSelect.value = cart.attributes['Pickup Store'];
         }
+        if (cart.attributes && cart.attributes[CONFIG.yesNoLabel] && yesNoInputs.length > 0) {
+          yesNoInputs.forEach(input => {
+            if (input.value === cart.attributes[CONFIG.yesNoLabel]) {
+              input.checked = true;
+            }
+          });
+          updateCheckoutButtonState();
+        }
       });
 
     normalOption?.addEventListener('click', () => {
       wrapper.querySelectorAll('.pickup-option').forEach(opt => opt.classList.remove('active'));
       normalOption.classList.add('active');
+      if (pickupOptionsContainer) pickupOptionsContainer.style.setProperty('display', 'none', 'important');
       if (storeInfo) storeInfo.classList.remove('active');
       if (deliverySection) deliverySection.style.display = 'none';
+      if (yesNoWrapper) yesNoWrapper.style.display = 'block';
+      
+      // Reset suburb validation
+      if (suburbInput) suburbInput.value = '';
+      if (suburbMessage) suburbMessage.style.display = 'none';
+      if (deliveryPickerControls) deliveryPickerControls.style.display = 'none';
+      if (shippingNote1) shippingNote1.value = '';
+      if (shippingNote2) shippingNote2.value = '';
+      matchedRule = null;
+
       updateCheckoutButtonState();
 
       fetch('/cart/update.js', {
@@ -748,7 +1054,10 @@
             'Pickup Store': '',
             'Delivery Date': '',
             'Delivery Time': '',
-            'Delivery Type': 'Normal Shipping'
+            'Delivery Type': 'Normal Shipping',
+            'Delivery Suburb': '',
+            [CONFIG.shippingNote1Heading]: '',
+            [CONFIG.shippingNote2Heading]: ''
           }
         })
       });
@@ -757,8 +1066,26 @@
     shippingOption?.addEventListener('click', () => {
       wrapper.querySelectorAll('.pickup-option').forEach(opt => opt.classList.remove('active'));
       shippingOption.classList.add('active');
+      if (pickupOptionsContainer) pickupOptionsContainer.style.setProperty('display', 'none', 'important');
       if (storeInfo) storeInfo.classList.remove('active');
       if (deliverySection) deliverySection.style.display = 'block';
+
+      // Reset sequential visibility for shipping
+      if (suburbValidationSection) suburbValidationSection.style.display = 'block';
+      if (dateInputWrapper) dateInputWrapper.style.display = 'none';
+      if (timeInput) timeInput.style.display = 'none';
+      if (note1Section) note1Section.style.display = 'none';
+      if (note2Section) note2Section.style.display = 'none';
+      if (yesNoWrapper) yesNoWrapper.style.display = 'none';
+
+      // Reset suburb validation
+      if (suburbInput) suburbInput.value = '';
+      if (suburbMessage) suburbMessage.style.display = 'none';
+      if (deliveryPickerControls) deliveryPickerControls.style.display = 'none';
+      if (shippingNote1) shippingNote1.value = '';
+      if (shippingNote2) shippingNote2.value = '';
+      matchedRule = null;
+
       updateCheckoutButtonState();
 
       fetch('/cart/update.js', {
@@ -776,8 +1103,19 @@
     storeOption?.addEventListener('click', () => {
       wrapper.querySelectorAll('.pickup-option').forEach(opt => opt.classList.remove('active'));
       storeOption.classList.add('active');
+      if (pickupOptionsContainer) pickupOptionsContainer.style.setProperty('display', 'none', 'important');
       if (storeInfo) storeInfo.classList.add('active');
       if (deliverySection) deliverySection.style.display = 'none';
+      if (yesNoWrapper) yesNoWrapper.style.display = 'block'; // Show checkbox for store pickup too if requested
+
+      // Reset suburb validation
+      if (suburbInput) suburbInput.value = '';
+      if (suburbMessage) suburbMessage.style.display = 'none';
+      if (deliveryPickerControls) deliveryPickerControls.style.display = 'none';
+      if (shippingNote1) shippingNote1.value = '';
+      if (shippingNote2) shippingNote2.value = '';
+      matchedRule = null;
+
       updateCheckoutButtonState();
 
       fetch('/cart/update.js', {
@@ -787,14 +1125,67 @@
           attributes: {
             'Delivery Date': '',
             'Delivery Time': '',
-            'Delivery Type': 'Store Pickup'
+            'Delivery Type': 'Store Pickup',
+            [CONFIG.shippingNote1Heading]: '',
+            [CONFIG.shippingNote2Heading]: ''
           }
         })
       });
     });
 
+    suburbCheckBtn?.addEventListener('click', () => {
+      const val = suburbInput.value.trim();
+      if (!val) {
+        suburbMessage.textContent = 'Please enter a suburb or postcode';
+        suburbMessage.style.color = '#d32f2f';
+        suburbMessage.style.display = 'block';
+        deliveryPickerControls.style.display = 'none';
+        return;
+      }
+
+      const rule = findMatchedRule(val);
+      if (rule) {
+        matchedRule = rule;
+        suburbMessage.textContent = `✓ Delivery available for ${val}`;
+        suburbMessage.style.color = '#2e7d32';
+        suburbMessage.style.display = 'block';
+        deliveryPickerControls.style.display = 'block';
+        
+        // Hide suburb section, show date picker
+        if (suburbValidationSection) suburbValidationSection.style.display = 'none';
+        if (dateInputWrapper) dateInputWrapper.style.display = 'flex';
+        if (timeInput) timeInput.style.display = 'block';
+        
+        // Reset date input when rule changes
+        dateInput.value = '';
+        renderCalendar();
+        
+        fetch('/cart/update.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            attributes: { 'Delivery Suburb': val }
+          })
+        });
+      } else {
+        matchedRule = null;
+        suburbMessage.textContent = '❌ Sorry, we do not deliver to this area';
+        suburbMessage.style.color = '#d32f2f';
+        suburbMessage.style.display = 'block';
+        deliveryPickerControls.style.display = 'none';
+      }
+    });
+
+    suburbInput?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        suburbCheckBtn.click();
+      }
+    });
+
     storeSelect.addEventListener('change', () => {
       const selectedStore = storeSelect.value;
+      updateCheckoutButtonState();
       
       const updateData = {
         attributes: {
@@ -885,6 +1276,7 @@
             e.stopPropagation();
             dateInput.value = date.toLocaleDateString('en-GB');
             calendarPopup.style.display = 'none';
+            updateCheckoutButtonState();
             saveDate(date);
           };
         }
@@ -909,7 +1301,11 @@
     }
 
     function saveDate(date) {
-      const dateStr = date.toISOString().split('T')[0];
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+
       fetch('/cart/update.js', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -919,6 +1315,41 @@
             'Delivery Time': timeInput ? timeInput.value : ''
           }
         })
+      }).then(() => {
+        // Hide date picker, show next step
+        const dateLabel = wrapper.querySelector('.delivery-date-label');
+        if (dateLabel) dateLabel.style.display = 'none';
+        if (dateInputWrapper) dateInputWrapper.style.display = 'none';
+        if (timeInput) timeInput.style.display = 'none';
+        
+        if (note1Section) {
+          note1Section.style.display = 'block';
+        } else if (note2Section) {
+          note2Section.style.display = 'block';
+        } else if (yesNoWrapper) {
+          yesNoWrapper.style.display = 'block';
+        }
+        updateCheckoutButtonState();
+      });
+    }
+
+    if (note1Next) {
+      note1Next.addEventListener('click', () => {
+        if (note1Section) note1Section.style.display = 'none';
+        if (note2Section) {
+          note2Section.style.display = 'block';
+        } else if (yesNoWrapper) {
+          yesNoWrapper.style.display = 'block';
+        }
+      });
+    }
+
+    if (note2Next) {
+      note2Next.addEventListener('click', () => {
+        if (note2Section) note2Section.style.display = 'none';
+        if (yesNoWrapper) {
+          yesNoWrapper.style.display = 'block';
+        }
       });
     }
 
@@ -957,6 +1388,45 @@
             })
           }).catch(err => console.error('Cart update error:', err));
         }
+      });
+    }
+
+    if (shippingNote1) {
+      shippingNote1.addEventListener('change', () => {
+        fetch('/cart/update.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            attributes: { [CONFIG.shippingNote1Heading]: shippingNote1.value }
+          })
+        });
+      });
+    }
+
+    if (shippingNote2) {
+      shippingNote2.addEventListener('change', () => {
+        fetch('/cart/update.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            attributes: { [CONFIG.shippingNote2Heading]: shippingNote2.value }
+          })
+        });
+      });
+    }
+
+    if (yesNoInputs.length > 0) {
+      yesNoInputs.forEach(input => {
+        input.addEventListener('change', () => {
+          updateCheckoutButtonState();
+          fetch('/cart/update.js', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              attributes: { [CONFIG.yesNoLabel]: input.value }
+            })
+          });
+        });
       });
     }
 

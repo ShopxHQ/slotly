@@ -16,7 +16,7 @@ export const loader = async ({ request }) => {
       id: 'default',
       name: 'Default Rule',
       suburbs: '',
-      earliestDays: 1,
+      earliestHours: 1,
       furthestDays: 90,
       availableDays: [],
       blockedDateRules: [],
@@ -28,12 +28,13 @@ export const loader = async ({ request }) => {
       id: 'default',
       name: 'Default Rule',
       suburbs: '',
-      earliestDays: config.earliestDays || 1,
+      earliestHours: config.earliestHours || config.earliestDays || 1,
       furthestDays: config.furthestDays || 90,
       availableDays: config.availableDays || [],
       blockedDateRules: config.blockedDateRules || [],
     }];
     delete config.earliestDays;
+    delete config.earliestHours; // Avoid duplicating if it was already there
     delete config.furthestDays;
     delete config.availableDays;
     delete config.blockedDateRules;
@@ -149,6 +150,7 @@ function CalendarPreview({ availableDays, blockedDates }) {
       padding: "24px",
       position: "sticky",
       top: "20px",
+      boxSizing: "border-box",
     }}>
       <h3 style={{
         fontSize: "16px",
@@ -326,7 +328,7 @@ export default function Delivery() {
       id: Date.now().toString(),
       name: `New Rule ${rules.length + 1}`,
       suburbs: '',
-      earliestDays: 1,
+      earliestHours: 1,
       furthestDays: 90,
       availableDays: [],
       blockedDateRules: [],
@@ -457,8 +459,10 @@ export default function Delivery() {
 
       <div style={{
         display: "grid",
-        gridTemplateColumns: "250px 1fr 380px",
+        gridTemplateColumns: "250px minmax(0, 1fr) 380px",
         gap: "24px",
+        width: "100%",
+        boxSizing: "border-box",
       }}>
         {/* Rules List Sidebar */}
         <div style={{
@@ -469,7 +473,8 @@ export default function Delivery() {
           display: "flex",
           flexDirection: "column",
           gap: "12px",
-          height: "fit-content"
+          height: "fit-content",
+          boxSizing: "border-box",
         }}>
           <h3 style={{ fontSize: "14px", fontWeight: "700", marginBottom: "8px" }}>Rules</h3>
           {rules.map(rule => (
@@ -529,6 +534,7 @@ export default function Delivery() {
               border: "1px solid #e5e5e5",
               borderRadius: "10px",
               padding: "20px",
+              boxSizing: "border-box",
             }}>
               <div style={{ marginBottom: "16px" }}>
                 <label style={{ display: "block", fontSize: "14px", fontWeight: "700", marginBottom: "8px" }}>Rule Name</label>
@@ -559,6 +565,7 @@ export default function Delivery() {
               border: "1px solid #e5e5e5",
               borderRadius: "10px",
               padding: "20px",
+              boxSizing: "border-box",
             }}>
               <h3 style={{
                 fontSize: "14px",
@@ -576,15 +583,15 @@ export default function Delivery() {
                 <input
                   type="number"
                   min="0"
-                  value={activeRule.earliestDays}
-                  onChange={(e) => updateActiveRule({ earliestDays: parseInt(e.target.value) || 0 })}
+                  value={activeRule.earliestHours}
+                  onChange={(e) => updateActiveRule({ earliestHours: parseInt(e.target.value) || 0 })}
                   style={{ ...inputStyle, flex: 1 }}
                 />
                 <span style={{
                   fontSize: "13px",
                   color: "#666",
                 }}>
-                  days ahead
+                  hours ahead
                 </span>
               </div>
             </div>
@@ -594,6 +601,7 @@ export default function Delivery() {
               border: "1px solid #e5e5e5",
               borderRadius: "10px",
               padding: "20px",
+              boxSizing: "border-box",
             }}>
               <h3 style={{
                 fontSize: "14px",
@@ -629,6 +637,7 @@ export default function Delivery() {
               border: "1px solid #e5e5e5",
               borderRadius: "10px",
               padding: "20px",
+              boxSizing: "border-box",
             }}>
               <h3 style={{
                 fontSize: "14px",
@@ -675,6 +684,7 @@ export default function Delivery() {
               border: "1px solid #e5e5e5",
               borderRadius: "10px",
               padding: "20px",
+              boxSizing: "border-box",
             }}>
               <h3 style={{
                 fontSize: "14px",
