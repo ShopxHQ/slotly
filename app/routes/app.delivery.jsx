@@ -17,6 +17,7 @@ export const loader = async ({ request }) => {
       name: 'Default Rule',
       suburbs: '',
       earliestHours: 1,
+      cutoffTime: '12:00',
       furthestDays: 90,
       availableDays: [],
       blockedDateRules: [],
@@ -29,15 +30,23 @@ export const loader = async ({ request }) => {
       name: 'Default Rule',
       suburbs: '',
       earliestHours: config.earliestHours || config.earliestDays || 1,
+      cutoffTime: config.cutoffTime || '12:00',
       furthestDays: config.furthestDays || 90,
       availableDays: config.availableDays || [],
       blockedDateRules: config.blockedDateRules || [],
     }];
     delete config.earliestDays;
-    delete config.earliestHours; // Avoid duplicating if it was already there
+    delete config.earliestHours;
     delete config.furthestDays;
     delete config.availableDays;
     delete config.blockedDateRules;
+    delete config.cutoffTime;
+  } else {
+    // Ensure all existing rules have a cutoffTime
+    config.rules = config.rules.map(rule => ({
+      ...rule,
+      cutoffTime: rule.cutoffTime || '12:00'
+    }));
   }
   
   console.log('Loader: returning config =', config);
@@ -329,6 +338,7 @@ export default function Delivery() {
       name: `New Rule ${rules.length + 1}`,
       suburbs: '',
       earliestHours: 1,
+      cutoffTime: '12:00',
       furthestDays: 90,
       availableDays: [],
       blockedDateRules: [],
@@ -579,6 +589,7 @@ export default function Delivery() {
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
+                marginBottom: "16px"
               }}>
                 <input
                   type="number"
@@ -593,6 +604,38 @@ export default function Delivery() {
                 }}>
                   hours ahead
                 </span>
+              </div>
+              <div style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}>
+                <label style={{
+                  fontSize: "14px",
+                  fontWeight: "700",
+                  color: "#333",
+                }}>
+                  Cutoff Time
+                </label>
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}>
+                  <input
+                    type="time"
+                    value={activeRule.cutoffTime || '12:00'}
+                    onChange={(e) => updateActiveRule({ cutoffTime: e.target.value })}
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  <span style={{
+                    fontSize: "12px",
+                    color: "#666",
+                    fontStyle: "italic"
+                  }}>
+                    (If past this time, lead time increases by 24h)
+                  </span>
+                </div>
               </div>
             </div>
 
